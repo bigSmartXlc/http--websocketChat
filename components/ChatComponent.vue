@@ -5,7 +5,7 @@
         v-for="message in messages"
         :key="message.id"
         :class="['message', message.role]">
-        <div class="message-content">{{ message.content }}</div>
+        <div class="message-content" v-html="formatMessageContent(message.content)"></div>
       </div>
       <div v-if="loading" class="message ai">
         <div class="message-content">
@@ -190,6 +190,24 @@ const scrollToBottom = () => {
     messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight
   }
 }
+
+// 格式化消息内容，将Markdown格式转换为HTML以便在v-html中正确显示
+const formatMessageContent = (content: string) => {
+  if (!content) return ''
+  
+  let formattedContent = content
+  
+  // 1. 将Markdown粗体格式(**文本**)转换为HTML的<strong>标签
+  formattedContent = formattedContent.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+  
+  // 2. 将Markdown三级标题(### 标题)转换为HTML的<h3>标签
+  formattedContent = formattedContent.replace(/^### (.+)$/gm, '<h3>$1</h3>')
+  
+  // 3. 将换行符转换为HTML的<br>标签
+  formattedContent = formattedContent.replace(/\n/g, '<br>')
+  
+  return formattedContent
+}
 </script>
 
 <style scoped>
@@ -233,6 +251,18 @@ const scrollToBottom = () => {
   border-radius: 18px;
   word-wrap: break-word;
   position: relative;
+}
+
+/* Markdown格式样式 */
+.message-content strong {
+  font-weight: bold;
+}
+
+.message-content h3 {
+  font-size: 1.1em;
+  font-weight: 600;
+  margin: 10px 0 5px 0;
+  color: #333;
 }
 
 .message.user .message-content {
