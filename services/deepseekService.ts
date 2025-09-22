@@ -57,29 +57,49 @@ export const useDeepSeekAI = () => {
     onComplete: () => void
   ) => {
     try {
+      // const requestBody = {
+      //   model: 'Qwen/QwQ-32B',
+      //   messages: messages.map((msg) => ({
+      //     role: msg.role,
+      //     content: msg.content,
+      //   })),
+      //   temperature: 0.7,
+      //   max_tokens: 2000,
+      //   stream: true, // 启用流式响应
+      // }
+
+      // const response = await fetch(
+      //   'https://api.siliconflow.cn/v1/chat/completions',
+      //   {
+      //     method: 'POST',
+      //     headers: {
+      //       'Content-Type': 'application/json',
+      //       Authorization: `Bearer ${apiKey}`,
+      //     },
+      //     body: JSON.stringify(requestBody),
+      //   }
+      // )
+
       const requestBody = {
+        user_id: '123',
         model: 'Qwen/QwQ-32B',
         messages: messages.map((msg) => ({
           role: msg.role,
           content: msg.content,
         })),
         temperature: 0.7,
-        max_tokens: 2000,
+        max_tokens: 1000,
         stream: true, // 启用流式响应
       }
 
-      const response = await fetch(
-        'https://api.siliconflow.cn/v1/chat/completions',
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${apiKey}`,
-          },
-          body: JSON.stringify(requestBody),
-        }
-      )
-
+      const response = await fetch('http://localhost:8000/api/chat/stream', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify(requestBody),
+      })
       if (!response.ok) {
         throw new Error(`API请求失败: ${response.status}`)
       }
@@ -105,19 +125,34 @@ export const useDeepSeekAI = () => {
 
         for (const line of lines) {
           if (line.startsWith('data:')) {
-            const data = line.substring(5).trim()
+            let data = line.substring(5).trim()
             if (data === '[DONE]') {
               onComplete()
               return
             }
             try {
+              // 修复1：将单引号转换为双引号，使数据符合JSON格式
+              data = data.replace(/'/g, '"')
+              
+              // 修复2：将JavaScript风格的大写布尔值(True/False)转换为JSON标准的小写布尔值(true/false)
+              data = data.replace(/\bTrue\b/g, 'true').replace(/\bFalse\b/g, 'false')
+              
               const parsedData = JSON.parse(data)
-              const content = parsedData.choices[0]?.delta?.content || ''
+              
+              // 修复2：根据用户提供的实际数据结构直接从content字段获取内容
+              const content = parsedData.content || ''
               if (content) {
                 onChunk(content)
               }
+              
+              // 修复3：处理is_final标志来确定流式响应何时完成
+              if (parsedData.is_final === true) {
+                onComplete()
+                return
+              }
             } catch (e) {
               console.error('解析流式响应数据失败:', e)
+              console.error('原始数据:', data)
             }
           }
         }
