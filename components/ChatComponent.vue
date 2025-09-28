@@ -5,7 +5,11 @@
         v-for="message in messages"
         :key="message.id"
         :class="['message', message.role]">
-        <div class="message-content" v-html="formatMessageContent(message.content)"></div>
+        <div
+          class="message-content"
+          v-html="
+            formatMessageContent(message.content, message.reasoning, message.id)
+          "></div>
       </div>
       <div v-if="loading" class="message ai">
         <div class="message-content">
@@ -49,37 +53,76 @@
 
 <script setup lang="ts">
 import { ref, onMounted, nextTick } from 'vue'
-import { useDeepSeekAI } from '@/services/deepseekService'
+import { sendChatMessageStream } from '@/services/deepseekService'
 
+// 定义Message接口以支持思考过程
 interface Message {
   id: string
   role: 'user' | 'ai'
   content: string
+  reasoning?: string[] // 存储思考过程的数组
 }
 
+// 状态定义
 const messages = ref<Message[]>([])
 const inputMessage = ref('')
 const loading = ref(false)
 const messagesContainer = ref<HTMLElement | null>(null)
 const showSettings = ref(false)
 const apiKey = ref('')
+const expandedReasoning = ref<Record<string, boolean>>({})
+const openReasoning = ref(true)
 
-const { sendChatMessage, sendChatMessageStream } = useDeepSeekAI()
+// 从localStorage加载聊天记录
+const loadChatHistory = () => {
+  try {
+    const savedMessages = localStorage.getItem('chatMessages')
+    if (savedMessages) {
+      const parsedMessages: Message[] = JSON.parse(savedMessages)
+      // 移除欢迎消息（如果存在），避免重复添加
+      const filteredMessages = parsedMessages.filter(
+        (msg) => msg.id !== 'welcome'
+      )
+      return filteredMessages
+    }
+  } catch (error) {
+    console.error('加载聊天记录失败:', error)
+  }
+  return []
+}
+
+// 保存聊天记录到localStorage，最多保存30条
+const saveChatHistory = () => {
+  try {
+    // 移除欢迎消息，因为我们每次加载都会重新添加
+    const messagesToSave = messages.value.filter((msg) => msg.id !== 'welcome')
+    // 只保留最近30条记录
+    const recentMessages = messagesToSave.slice(-30)
+    localStorage.setItem('chatMessages', JSON.stringify(recentMessages))
+  } catch (error) {
+    console.error('保存聊天记录失败:', error)
+  }
+}
 
 onMounted(() => {
-  //获取查询参数
   // 从localStorage加载API Key
   const savedApiKey = localStorage.getItem('deepseekApiKey')
   if (savedApiKey) {
     apiKey.value = savedApiKey
   }
 
-  // 添加欢迎消息
-  messages.value.push({
-    id: 'welcome',
-    role: 'ai',
-    content: '您好！我是DeepSeek AI助手，有什么可以帮助您的吗？',
-  })
+  // 从localStorage加载聊天记录
+  const savedMessages = loadChatHistory()
+  if (savedMessages.length > 0) {
+    messages.value = [...savedMessages]
+  } else {
+    // 如果没有保存的聊天记录，添加欢迎消息
+    messages.value.push({
+      id: 'welcome',
+      role: 'ai',
+      content: '您好！我是DeepSeek AI助手，有什么可以帮助您的吗？',
+    })
+  }
 
   // 获取查询参数appid
   const urlParams = new URLSearchParams(window.location.search)
@@ -107,6 +150,9 @@ const sendMessage = async () => {
   }
   messages.value.push(userMessage)
 
+  // 保存聊天记录
+  saveChatHistory()
+
   // 清空输入框
   inputMessage.value = ''
 
@@ -117,42 +163,55 @@ const sendMessage = async () => {
   loading.value = true
 
   try {
-    // // 调用API发送消息
-    // const response = await sendChatMessage(apiKey.value, [userMessage])
-    // // 添加AI回复
-    // const aiMessage: Message = {
-    //   id: (Date.now() + 1).toString(),
-    //   role: 'ai',
-    //   content: response || '抱歉，我暂时无法回答这个问题。',
-    // }
-    // messages.value.push(aiMessage)
-    //----------------------------流式输出--------------------------------
-    // 1. 创建一个空的AI消息对象，用于后续更新
+    // 创建一个空的AI消息对象，用于后续更新
     const aiMessageId = (Date.now() + 1).toString()
     const aiMessage: Message = {
       id: aiMessageId,
       role: 'ai',
       content: '', // 初始为空，通过流式响应逐步填充
+      reasoning: [], // 初始化思考过程数组
     }
     messages.value.push(aiMessage)
 
-    // 2. 使用流式响应函数，并在回调中更新消息内容
+    // 默认展开思考过程
+    expandedReasoning.value[aiMessageId] = true
+
+    // 使用流式响应函数，并在回调中更新消息内容
     await sendChatMessageStream(
       apiKey.value,
       [userMessage],
       (data) => {
-        // 3. 在onChunk回调中，找到对应的消息并追加内容
+        // 在onChunk回调中，找到对应的消息并追加内容或思考过程
         const messageIndex = messages.value.findIndex(
           (msg) => msg.id === aiMessageId
         )
         if (messageIndex !== -1) {
-          messages.value[messageIndex].content += data
+          if (typeof data === 'string') {
+            // 普通文本内容
+            messages.value[messageIndex].content += data
+          } else {
+            // 包含内容和思考过程的对象
+            if (data.content) {
+              messages.value[messageIndex].content += data.content
+            }
+            if (
+              data.reasoning &&
+              typeof data.reasoning === 'string' &&
+              data.reasoning.trim()
+            ) {
+              // 确保reasoning数组存在
+              if (!messages.value[messageIndex].reasoning) {
+                messages.value[messageIndex].reasoning = []
+              }
+              messages.value[messageIndex].reasoning.push(data.reasoning)
+            }
+          }
           // 触发响应式更新
           messages.value = [...messages.value]
         }
       },
       () => {
-        // 4. 在onComplete回调中，可以进行完成后的处理
+        // 在onComplete回调中，可以进行完成后的处理
         console.log('请求完成')
         // 如果最终内容为空，可以设置默认消息
         const messageIndex = messages.value.findIndex(
@@ -160,7 +219,7 @@ const sendMessage = async () => {
         )
         if (
           messageIndex !== -1 &&
-          !messages.value[messageIndex].content.trim()
+          !(messages.value[messageIndex].content?.trim() ?? '')
         ) {
           messages.value[messageIndex].content =
             '抱歉，我暂时无法回答这个问题。'
@@ -179,6 +238,9 @@ const sendMessage = async () => {
   } finally {
     loading.value = false
 
+    // 保存聊天记录（包含AI回复）
+    saveChatHistory()
+
     // 滚动到底部
     await nextTick()
     scrollToBottom()
@@ -191,21 +253,51 @@ const scrollToBottom = () => {
   }
 }
 
-// 格式化消息内容，将Markdown格式转换为HTML以便在v-html中正确显示
-const formatMessageContent = (content: string) => {
-  if (!content) return ''
-  
-  let formattedContent = content
-  
-  // 1. 将Markdown粗体格式(**文本**)转换为HTML的<strong>标签
-  formattedContent = formattedContent.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-  
-  // 2. 将Markdown三级标题(### 标题)转换为HTML的<h3>标签
-  formattedContent = formattedContent.replace(/^### (.+)$/gm, '<h3>$1</h3>')
-  
-  // 3. 将换行符转换为HTML的<br>标签
-  formattedContent = formattedContent.replace(/\n/g, '<br>')
-  
+// 格式化消息内容，支持显示可关闭的思考过程
+const formatMessageContent = (
+  content: string,
+  reasoning?: string[],
+  messageId?: string
+) => {
+  if (!content && (!reasoning || reasoning.length === 0)) return ''
+
+  let formattedContent = ''
+
+  // 如果有思考过程，显示可关闭的思考过程
+  if (openReasoning.value && reasoning && reasoning.length > 0 && messageId) {
+    const isExpanded = expandedReasoning.value[messageId] !== false
+    formattedContent += `<div class="reasoning-process">`
+    formattedContent += `<div class="reasoning-header">`
+    formattedContent += `<span class="reasoning-title">🤔 思考过程：</span>`
+    formattedContent += `</div>`
+
+    if (isExpanded) {
+      formattedContent += `<div class="reasoning-content" style="font-size: 12px;border-left:solid 2px #c4cbd7;padding-left:10px;">`
+      formattedContent += reasoning.join('')
+      formattedContent += `</div>`
+    }
+    formattedContent += `</div>`
+  }
+
+  // 然后显示普通内容
+  if (content) {
+    let processedContent = content
+
+    // 将Markdown粗体格式(**文本**)转换为HTML的<strong>标签
+    processedContent = processedContent.replace(
+      /\*\*(.+?)\*\*/g,
+      '<strong>$1</strong>'
+    )
+
+    // 将Markdown三级标题(### 标题)转换为HTML的<h3>标签
+    processedContent = processedContent.replace(/^### (.+)$/gm, '<h3>$1</h3>')
+
+    // 将换行符转换为HTML的<br>标签
+    processedContent = processedContent.replace(/\n/g, '<br>')
+
+    formattedContent += `<div class="normal-content">${processedContent}</div>`
+  }
+
   return formattedContent
 }
 </script>
@@ -234,7 +326,6 @@ const formatMessageContent = (content: string) => {
 .message {
   margin-bottom: 1rem;
   display: flex;
-  max-width: 80%;
 }
 
 .message.user {
@@ -251,6 +342,7 @@ const formatMessageContent = (content: string) => {
   border-radius: 18px;
   word-wrap: break-word;
   position: relative;
+  background-color: #e2e8f0;
 }
 
 /* Markdown格式样式 */
@@ -272,10 +364,13 @@ const formatMessageContent = (content: string) => {
 }
 
 .message.ai .message-content {
-  background-color: white;
   color: #333;
   border: 1px solid #eaeaea;
   border-bottom-left-radius: 4px;
+}
+
+.normal-content {
+  line-height: 1.6;
 }
 
 .chat-input {
@@ -323,7 +418,7 @@ const formatMessageContent = (content: string) => {
 .settings-button {
   position: absolute;
   top: 10px;
-  right: 10px;
+  left: 10px;
   background: none;
   border: none;
   font-size: 1.5rem;

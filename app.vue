@@ -2,10 +2,10 @@
   <div class="app-container">
     <header class="app-header">
       <h1>AI小助手</h1>
-      <nav>
+      <!-- <nav>
         <router-link to="/">http</router-link>
         <router-link to="/socket">WebSocket</router-link>
-      </nav>
+      </nav> -->
     </header>
     <main class="app-main">
       <!-- 如果访问的是首页(/)，显示ChatComponent，否则显示路由匹配的页面 -->
@@ -41,6 +41,7 @@
   flex: 1;
   overflow: auto;
   padding: 1rem;
+  max-width: 100%;
 }
 nav {
   margin-top: 10px;
