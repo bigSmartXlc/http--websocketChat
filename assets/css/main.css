@@ -98,3 +98,9 @@ body {
 .normal-content {
   line-height: 16px;
 }
+
+.reasoning-content {
+  max-height: 450px;
+  overflow: auto;
+  color: #90a1af;
+}

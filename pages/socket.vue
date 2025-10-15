@@ -1,19 +1,18 @@
 <template>
   <div class="chat-container">
     <!-- 连接状态显示 -->
-    <div class="status-bar">
+    <!-- <div class="status-bar">
       <h1>WebSocket聊天</h1>
       <div
         class="connection-status"
         :class="{ connected: isConnected, disconnected: !isConnected }">
         {{ isConnected ? '已连接' : '未连接' }}
       </div>
-    </div>
+    </div> -->
 
     <!-- 聊天消息列表 -->
     <div class="chat-messages" ref="messagesContainer">
-      <!-- 连接前提示 -->
-      <div v-if="!isConnected && !isConnecting" class="connection-prompt">
+      <!-- <div v-if="!isConnected && !isConnecting" class="connection-prompt">
         <p>请先连接到WebSocket服务器</p>
         <div class="connection-settings">
           <input
@@ -24,7 +23,6 @@
         </div>
       </div>
 
-      <!-- 连接中状态 -->
       <div v-if="isConnecting" class="connecting-status">
         <div class="typing-indicator">
           <span></span>
@@ -32,7 +30,7 @@
           <span></span>
         </div>
         <p>正在连接服务器...</p>
-      </div>
+      </div> -->
 
       <!-- 消息列表 -->
       <template v-if="isConnected">
@@ -73,9 +71,9 @@
     </div>
 
     <!-- 设置按钮 -->
-    <button @click="showSettings = !showSettings" class="settings-button">
+    <!-- <button @click="showSettings = !showSettings" class="settings-button">
       ⚙️
-    </button>
+    </button> -->
 
     <!-- 设置面板 -->
     <div class="chat-settings" v-if="showSettings">
@@ -126,7 +124,7 @@ const connect = async () => {
   }
 
   isConnecting.value = true
-  addSystemMessage(`正在连接到服务器: ${websocketUrl.value}`)
+  // addSystemMessage(`正在连接到服务器: ${websocketUrl.value}`)
 
   try {
     // 使用浏览器原生WebSocket API连接
@@ -134,13 +132,13 @@ const connect = async () => {
 
     // 设置连接成功状态
     isConnected.value = true
-    addSystemMessage('已成功连接到WebSocket服务器')
+    // addSystemMessage('已成功连接到WebSocket服务器')
 
     // 设置WebSocket事件监听器
     setupWebSocketListeners(wsConnection.value)
 
     // 测试连接 - 发送一条欢迎消息
-    addSystemMessage('连接成功，可以开始发送消息了...')
+    // addSystemMessage('连接成功，可以开始发送消息了...')
 
     // 发送一条欢迎消息给服务器
     await browserSendChatMessage(wsConnection.value, '你好，WebSocket服务器！')
@@ -406,6 +404,7 @@ const scrollToBottom = () => {
 // 组件挂载时的钩子
 onMounted(() => {
   // 可以在这里进行一些初始化操作
+  connect()
   // 例如从URL参数中获取WebSocket服务器地址
 })
 

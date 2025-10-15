@@ -35,7 +35,7 @@
         发送
       </button>
     </div>
-    <div class="chat-settings" v-if="showSettings">
+    <!-- <div class="chat-settings" v-if="showSettings">
       <h3>API设置</h3>
       <input
         v-model="apiKey"
@@ -47,13 +47,16 @@
     </div>
     <button @click="showSettings = !showSettings" class="settings-button">
       ⚙️
-    </button>
+    </button> -->
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted, nextTick } from 'vue'
-import { sendChatMessageStream } from '@/services/deepseekService'
+import {
+  sendChatMessageStream,
+  getCurrentLocation,
+} from '@/services/deepseekService'
 
 // 定义Message接口以支持思考过程
 interface Message {
@@ -68,11 +71,14 @@ const messages = ref<Message[]>([])
 const inputMessage = ref('')
 const loading = ref(false)
 const messagesContainer = ref<HTMLElement | null>(null)
-const showSettings = ref(false)
+// const showSettings = ref(false)
 const apiKey = ref('')
 const expandedReasoning = ref<Record<string, boolean>>({})
 const openReasoning = ref(true)
-
+const position = ref({
+  latitude: 0,
+  longitude: 0,
+})
 // 从localStorage加载聊天记录
 const loadChatHistory = () => {
   try {
@@ -107,6 +113,13 @@ const saveChatHistory = () => {
 onMounted(() => {
   // 从localStorage加载API Key
   const savedApiKey = localStorage.getItem('deepseekApiKey')
+  getCurrentLocation().then((location: any) => {
+    console.log('当前位置:', location)
+    position.value = {
+      latitude: location.latitude,
+      longitude: location.longitude,
+    }
+  })
   if (savedApiKey) {
     apiKey.value = savedApiKey
   }
@@ -132,13 +145,13 @@ onMounted(() => {
   }
 })
 
-const saveSettings = () => {
-  localStorage.setItem('deepseekApiKey', apiKey.value)
-  showSettings.value = false
-}
+// const saveSettings = () => {
+//   localStorage.setItem('deepseekApiKey', apiKey.value)
+//   showSettings.value = false
+// }
 
 const sendMessage = async () => {
-  if (!inputMessage.value.trim() || loading.value || !apiKey.value) {
+  if (!inputMessage.value.trim() || loading.value) {
     return
   }
 
@@ -178,7 +191,7 @@ const sendMessage = async () => {
 
     // 使用流式响应函数，并在回调中更新消息内容
     await sendChatMessageStream(
-      apiKey.value,
+      position.value,
       [userMessage],
       (data) => {
         // 在onChunk回调中，找到对应的消息并追加内容或思考过程
@@ -272,7 +285,7 @@ const formatMessageContent = (
     formattedContent += `</div>`
 
     if (isExpanded) {
-      formattedContent += `<div class="reasoning-content" style="font-size: 12px;border-left:solid 2px #c4cbd7;padding-left:10px;">`
+      formattedContent += `<div class="reasoning-content" style="font-size: 12px;border-left:solid 2px #c4cbd7;padding-left:10px;line-height: 16px;">`
       formattedContent += reasoning.join('')
       formattedContent += `</div>`
     }

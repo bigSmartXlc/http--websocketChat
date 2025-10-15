@@ -1,10 +1,49 @@
 // DeepSeek AI 服务模块
+// 定义配置接口
+export interface AppConfig {
+  apiBaseUrl: string
+  defaultApiKey: string
+}
+
+// 加载配置文件
+let appConfig: AppConfig = {
+  apiBaseUrl: '/ai_customer/processing',
+  defaultApiKey: '',
+}
+
+/**
+ * 从配置文件加载应用配置
+ * @returns 配置对象
+ */
+export const loadAppConfig = async (): Promise<AppConfig> => {
+  try {
+    // 从public目录加载配置文件
+    const response = await fetch('/config.json')
+    if (response.ok) {
+      const config = await response.json()
+      appConfig = {
+        apiBaseUrl: config.apiBaseUrl || appConfig.apiBaseUrl,
+        defaultApiKey: config.defaultApiKey || appConfig.defaultApiKey,
+      }
+    }
+  } catch (error) {
+    console.warn('加载配置文件失败，使用默认配置:', error)
+  }
+  return appConfig
+}
+
+// 初始化时加载配置
+loadAppConfig()
+
 // 发送聊天消息到DeepSeek AI API
 const sendChatMessage = async (
   apiKey: string,
   messages: Array<{ role: 'user' | 'ai'; content: string }>
 ) => {
   try {
+    // 确保配置已加载
+    await loadAppConfig()
+
     // 准备API请求参数
     const requestBody = {
       model: 'Qwen/QwQ-32B', // 使用DeepSeek的聊天模型
@@ -16,18 +55,15 @@ const sendChatMessage = async (
       max_tokens: 2000, // 最大生成的token数
     }
 
-    // 发送请求到DeepSeek AI API
-    const response = await fetch(
-      'https://api.siliconflow.cn/v1/chat/completions',
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${apiKey}`, // 使用提供的API密钥
-        },
-        body: JSON.stringify(requestBody),
-      }
-    )
+    // 发送请求到配置的API地址
+    const response = await fetch(appConfig.apiBaseUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiKey || appConfig.defaultApiKey}`, // 使用提供的API密钥或默认值
+      },
+      body: JSON.stringify(requestBody),
+    })
 
     // 检查响应状态
     if (!response.ok) {
@@ -70,35 +106,35 @@ export interface StreamCallbacks {
 
 // 修改 sendChatMessageStream 函数的类型定义
 export const sendChatMessageStream = async (
-  apiKey: string,
+  //经纬度
+  position: {
+    latitude: number
+    longitude: number
+  },
   messages: Array<{ role: 'user' | 'ai'; content: string }>,
   onChunk: (chunk: string | StreamChunk) => void,
   onComplete: () => void
 ) => {
   try {
+    // 确保配置已加载
+    await loadAppConfig()
+
     const requestBody = {
-      model: 'Qwen/QwQ-32B',
-      messages: messages.map((msg) => ({
-        role: msg.role,
-        content: msg.content,
-      })),
-      temperature: 0.7,
-      max_tokens: 1000,
-      customUid: '123',
-      stream: true, // 启用流式响应
+      latitude: position.latitude,
+      longitude: position.longitude,
+      user_id: '123',
+      chat_id: 'XX',
+      question: messages[messages.length - 1].content,
     }
 
-    const response = await fetch(
-      'http://localhost:3000/api/v2/chat/completions',
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${apiKey}`,
-        },
-        body: JSON.stringify(requestBody),
-      }
-    )
+    const response = await fetch(appConfig.apiBaseUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      credentials: 'include',
+      body: JSON.stringify(requestBody),
+    })
     if (!response.ok) {
       throw new Error(`API请求失败: ${response.status}`)
     }
@@ -193,5 +229,31 @@ const validateApiKey = async (apiKey: string): Promise<boolean> => {
     return response.ok
   } catch {
     return false
+  }
+}
+
+// 导出获取当前配置的函数，供其他组件使用
+export const getCurrentConfig = (): AppConfig => {
+  return { ...appConfig }
+}
+
+//h5获取当前位置信息
+export const getCurrentLocation = async () => {
+  if (navigator.geolocation) {
+    return new Promise((resolve, reject) => {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          resolve({
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude,
+          })
+        },
+        (error) => {
+          reject(error)
+        }
+      )
+    })
+  } else {
+    throw new Error('浏览器不支持定位')
   }
 }
