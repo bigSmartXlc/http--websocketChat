@@ -3,12 +3,16 @@
 export interface AppConfig {
   apiBaseUrl: string
   defaultApiKey: string
+  securityJsCode: string
+  key: string
 }
 
 // 加载配置文件
 let appConfig: AppConfig = {
   apiBaseUrl: '/ai_customer/processing',
-  defaultApiKey: '',
+  defaultApiKey: '46546sdffdsffdsfe',
+  securityJsCode: 'f2c5b796509cce81aa504808c2e066f1',
+  key: '3a4b3b633dc42eec565aee94918477e0',
 }
 
 /**
@@ -17,6 +21,8 @@ let appConfig: AppConfig = {
  */
 export const loadAppConfig = async (): Promise<AppConfig> => {
   try {
+    const { useGlobalStore } = await import('@/stores/global')
+    const globalStore = useGlobalStore()
     // 从public目录加载配置文件
     const response = await fetch('/config.json')
     if (response.ok) {
@@ -24,7 +30,11 @@ export const loadAppConfig = async (): Promise<AppConfig> => {
       appConfig = {
         apiBaseUrl: config.apiBaseUrl || appConfig.apiBaseUrl,
         defaultApiKey: config.defaultApiKey || appConfig.defaultApiKey,
+        securityJsCode: config.securityJsCode || appConfig.securityJsCode,
+        key: config.key || appConfig.key,
       }
+      globalStore.setAppConfig(config)
+      return config
     }
   } catch (error) {
     console.warn('加载配置文件失败，使用默认配置:', error)
@@ -32,18 +42,12 @@ export const loadAppConfig = async (): Promise<AppConfig> => {
   return appConfig
 }
 
-// 初始化时加载配置
-loadAppConfig()
-
 // 发送聊天消息到DeepSeek AI API
 const sendChatMessage = async (
   apiKey: string,
   messages: Array<{ role: 'user' | 'ai'; content: string }>
 ) => {
   try {
-    // 确保配置已加载
-    await loadAppConfig()
-
     // 准备API请求参数
     const requestBody = {
       model: 'Qwen/QwQ-32B', // 使用DeepSeek的聊天模型
@@ -116,9 +120,6 @@ export const sendChatMessageStream = async (
   onComplete: () => void
 ) => {
   try {
-    // 确保配置已加载
-    await loadAppConfig()
-
     const requestBody = {
       latitude: position.latitude,
       longitude: position.longitude,
@@ -131,6 +132,7 @@ export const sendChatMessageStream = async (
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        Authorization: `Bearer ${appConfig.defaultApiKey}`, // 使用提供的API密钥或默认值
       },
       credentials: 'include',
       body: JSON.stringify(requestBody),
@@ -215,45 +217,108 @@ export const sendChatMessageStream = async (
   }
 }
 
-// 验证API密钥是否有效
-const validateApiKey = async (apiKey: string): Promise<boolean> => {
-  try {
-    // 发送一个简单的请求来验证API密钥
-    const response = await fetch('https://api.deepseek.com/v1/models', {
-      method: 'GET',
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-      },
-    })
-
-    return response.ok
-  } catch {
-    return false
-  }
-}
-
-// 导出获取当前配置的函数，供其他组件使用
-export const getCurrentConfig = (): AppConfig => {
-  return { ...appConfig }
-}
-
-//h5获取当前位置信息
+//h5获取当前位置信息（单次获取）
 export const getCurrentLocation = async () => {
   if (navigator.geolocation) {
+    const { useGlobalStore } = await import('@/stores/global')
+    const globalStore = useGlobalStore()
+    // 先清除已存在的监听器，避免重复监听
+    if (globalStore.watchid) {
+      navigator.geolocation.clearWatch(globalStore.watchid)
+    }
     return new Promise((resolve, reject) => {
-      navigator.geolocation.getCurrentPosition(
+      let watchId: number | null = null
+      watchId = navigator.geolocation.watchPosition(
         (position) => {
-          resolve({
-            latitude: position.coords.latitude,
-            longitude: position.coords.longitude,
-          })
+          try {
+            // 构建位置数据对象
+            const locationData = {
+              latitude: position.coords.latitude,
+              longitude: position.coords.longitude,
+            }
+            // 设置watchId到全局状态，以便后续可以清除监听
+            globalStore.setWatchid(watchId)
+            // 上传位置信息到服务器
+            console.log('获取到位置:', globalStore.currentLocation)
+            // 解析位置数据
+            resolve(locationData)
+          } catch (storeError) {
+            console.error('更新全局位置状态失败:', storeError)
+            resolve(position)
+          }
         },
         (error) => {
           reject(error)
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 3000,
         }
       )
     })
   } else {
     throw new Error('浏览器不支持定位')
+  }
+}
+
+//获取微信token
+export const getWechatToken = async () => {
+  try {
+    const response = await fetch('/ai_customer/wechat_token', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    })
+    if (!response.ok) {
+      throw new Error(`API请求失败: ${response.status}`)
+    }
+    const data = await response.json()
+    return data.token
+  } catch (error) {
+    console.error('获取微信token失败:', error)
+    throw error
+  }
+}
+
+//获取用户信息
+export const getUserInfo = async (id: string) => {
+  try {
+    const response = await fetch(`/ai_customer/user_info?id=${id}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    })
+    if (!response.ok) {
+      throw new Error(`API请求失败: ${response.status}`)
+    }
+    const data = await response.json()
+    return data
+  } catch (error) {
+    console.error('获取用户信息失败:', error)
+    throw error
+  }
+}
+
+//获取查询提示词
+export const getQueryPrompt = async (prompt_type: string) => {
+  try {
+    const response = await fetch(`ai_customer/prompt/list/${prompt_type}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    })
+    if (!response.ok) {
+      throw new Error(`API请求失败: ${response.status}`)
+    }
+    const data = await response.json()
+    console.log('获取查询提示词成功:', data)
+    return data.data
+  } catch (error) {
+    console.error('获取查询提示词失败:', error)
+    throw error
   }
 }

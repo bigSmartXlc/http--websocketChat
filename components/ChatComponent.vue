@@ -35,28 +35,17 @@
         发送
       </button>
     </div>
-    <!-- <div class="chat-settings" v-if="showSettings">
-      <h3>API设置</h3>
-      <input
-        v-model="apiKey"
-        placeholder="请输入API Key"
-        type="password"
-        class="settings-input" />
-      <button @click="saveSettings" class="save-button">保存设置</button>
-      <button @click="showSettings = false" class="close-button">关闭</button>
-    </div>
-    <button @click="showSettings = !showSettings" class="settings-button">
-      ⚙️
-    </button> -->
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, nextTick } from 'vue'
+import { ref, onMounted, nextTick, onUnmounted, computed } from 'vue'
 import {
   sendChatMessageStream,
-  getCurrentLocation,
+  getUserInfo,
+  getQueryPrompt,
 } from '@/services/deepseekService'
+import { useGlobalStore } from '@/stores/global'
 
 // 定义Message接口以支持思考过程
 interface Message {
@@ -67,18 +56,46 @@ interface Message {
 }
 
 // 状态定义
+const globalStore = useGlobalStore()
+const address = computed(() => globalStore.currentLocation?.address)
 const messages = ref<Message[]>([])
 const inputMessage = ref('')
 const loading = ref(false)
 const messagesContainer = ref<HTMLElement | null>(null)
-// const showSettings = ref(false)
-const apiKey = ref('')
 const expandedReasoning = ref<Record<string, boolean>>({})
 const openReasoning = ref(true)
-const position = ref({
-  latitude: 0,
-  longitude: 0,
+
+const presetQuestions = ref([
+  {
+    prompt_content: `帮我查询${globalStore.locationData.address}附近的停车场`,
+    type: 'msg',
+    id: '1',
+  },
+  {
+    prompt_content: '帮查查最近的有空余车位的停车场',
+    type: 'msg',
+    id: '2',
+  },
+  {
+    prompt_content: '帮我导航到最近的停车场',
+    type: 'map',
+    id: '3',
+  },
+])
+
+//拼接问题列表
+const presetQuestionsText = computed(() => {
+  let text = `<ul class="preset-questions" style="list-style-type:decimal;cursor:pointer;">`
+  presetQuestions.value.forEach((item) => {
+    text += `<li data-action="${
+      item.type || 'msg'
+    }" style="cursor:pointer;margin-bottom:15px;text-decoration:underline;color:blue;">${
+      item.prompt_content
+    }</li>`
+  })
+  return text + `</ul>`
 })
+
 // 从localStorage加载聊天记录
 const loadChatHistory = () => {
   try {
@@ -110,45 +127,92 @@ const saveChatHistory = () => {
   }
 }
 
-onMounted(() => {
-  // 从localStorage加载API Key
-  const savedApiKey = localStorage.getItem('deepseekApiKey')
-  getCurrentLocation().then((location: any) => {
-    console.log('当前位置:', location)
-    position.value = {
-      latitude: location.latitude,
-      longitude: location.longitude,
-    }
-  })
-  if (savedApiKey) {
-    apiKey.value = savedApiKey
-  }
+const getUserInfoAndAddWelcomeMessage = async () => {
+  try {
+    // 获取查询参数id
+    // const urlParams = new URLSearchParams(window.location.search)
+    // const id: string = urlParams.get('id') || ''
+    // const userInfo = await getUserInfo(id)
+    // user.value = {
+    //   phone: userInfo.phone,
+    //   name: userInfo.name,
+    // }
 
-  // 从localStorage加载聊天记录
-  const savedMessages = loadChatHistory()
-  if (savedMessages.length > 0) {
-    messages.value = [...savedMessages]
-  } else {
-    // 如果没有保存的聊天记录，添加欢迎消息
+    // 添加欢迎消息
     messages.value.push({
       id: 'welcome',
       role: 'ai',
-      content: '您好！我是DeepSeek AI助手，有什么可以帮助您的吗？',
+      content: `<p>用户<span style="text-decoration:underline;color:blue;">${globalStore.userInfo.phone}</span>您好！您当前的位置为<span style="text-decoration:underline;color:blue;">${globalStore.currentLocation.address}(${globalStore.currentLocation.latitude},${globalStore.currentLocation.longitude})</span>附近,请问有什么可以帮您</p>
+      ${presetQuestionsText.value}`,
+    })
+  } catch (error) {
+    console.error('获取用户信息失败:', error)
+  }
+}
+
+//获取查询提示词
+const getPrompt = async (prompt_type: string) => {
+  try {
+    const prompt = await getQueryPrompt(prompt_type)
+    presetQuestions.value = prompt
+    getUserInfoAndAddWelcomeMessage()
+  } catch (error) {
+    console.error('获取查询提示词失败:', error)
+    getUserInfoAndAddWelcomeMessage()
+    throw error
+  }
+}
+
+//监听address
+const hasShownWelcome = ref(false)
+// 监听位置信息变化
+const locationWatchStop = watch(
+  () => globalStore.currentLocation?.address,
+  (newAddress) => {
+    if (newAddress && !hasShownWelcome.value) {
+      hasShownWelcome.value = true
+      getPrompt('TOP')
+    }
+  },
+  { immediate: false, deep: true } // 立即执行并深度监听
+)
+
+//事件点击发送消息事件
+const handleClickSendMessage = (event: Event) => {
+  console.log(event)
+
+  // 检查点击的元素是否是快速问题列表项
+  if (event.target instanceof HTMLLIElement) {
+    // 触发自定义事件，传递问题内容
+    const question = event.target.textContent?.trim()
+    inputMessage.value = question
+    sendMessage()
+  }
+}
+//导航跳转小程序
+const handleClickPresetQuestion = (event: Event) => {
+  // 检查点击的元素是否是快速问题列表项
+  if (event.target instanceof HTMLLIElement) {
+    ;(window as any).wx.miniProgram.redirectTo({ url: '/pages/map/map' })
+  }
+}
+
+onMounted(async () => {
+  const chatContainer = document.querySelector('.chat-container')
+  if (chatContainer) {
+    chatContainer.addEventListener('click', (event) => {
+      const actionElement = (event.target as HTMLElement).closest(
+        '[data-action]'
+      ) as HTMLElement
+      console.log(actionElement)
+      if (actionElement?.dataset.action === 'msg') {
+        handleClickSendMessage(event)
+      } else if (actionElement?.dataset.action === 'map') {
+        handleClickPresetQuestion(event)
+      }
     })
   }
-
-  // 获取查询参数appid
-  const urlParams = new URLSearchParams(window.location.search)
-  const appid = urlParams.get('appid')
-  if (appid) {
-    inputMessage.value = appid
-  }
 })
-
-// const saveSettings = () => {
-//   localStorage.setItem('deepseekApiKey', apiKey.value)
-//   showSettings.value = false
-// }
 
 const sendMessage = async () => {
   if (!inputMessage.value.trim() || loading.value) {
@@ -164,7 +228,7 @@ const sendMessage = async () => {
   messages.value.push(userMessage)
 
   // 保存聊天记录
-  saveChatHistory()
+  // saveChatHistory()
 
   // 清空输入框
   inputMessage.value = ''
@@ -191,7 +255,7 @@ const sendMessage = async () => {
 
     // 使用流式响应函数，并在回调中更新消息内容
     await sendChatMessageStream(
-      position.value,
+      globalStore.currentLocation,
       [userMessage],
       (data) => {
         // 在onChunk回调中，找到对应的消息并追加内容或思考过程
@@ -245,14 +309,14 @@ const sendMessage = async () => {
     const errorMessage: Message = {
       id: (Date.now() + 2).toString(),
       role: 'ai',
-      content: '抱歉，API请求失败，请检查您的API Key是否正确。',
+      content: '抱歉，网络繁忙请稍后再试',
     }
     messages.value.push(errorMessage)
   } finally {
     loading.value = false
 
     // 保存聊天记录（包含AI回复）
-    saveChatHistory()
+    // saveChatHistory()
 
     // 滚动到底部
     await nextTick()
