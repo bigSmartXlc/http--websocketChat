@@ -219,46 +219,66 @@ export const sendChatMessageStream = async (
 
 //h5获取当前位置信息（单次获取）
 export const getCurrentLocation = async () => {
-  if (navigator.geolocation) {
-    const { useGlobalStore } = await import('@/stores/global')
-    const globalStore = useGlobalStore()
-    // 先清除已存在的监听器，避免重复监听
-    if (globalStore.watchid) {
-      navigator.geolocation.clearWatch(globalStore.watchid)
-    }
-    return new Promise((resolve, reject) => {
-      let watchId: number | null = null
-      watchId = navigator.geolocation.watchPosition(
-        (position) => {
-          try {
-            // 构建位置数据对象
-            const locationData = {
-              latitude: position.coords.latitude,
-              longitude: position.coords.longitude,
-            }
-            // 设置watchId到全局状态，以便后续可以清除监听
-            globalStore.setWatchid(watchId)
-            // 上传位置信息到服务器
-            console.log('获取到位置:', globalStore.currentLocation)
-            // 解析位置数据
-            resolve(locationData)
-          } catch (storeError) {
-            console.error('更新全局位置状态失败:', storeError)
-            resolve(position)
-          }
-        },
-        (error) => {
-          reject(error)
-        },
-        {
-          enableHighAccuracy: true,
-          timeout: 10000,
-          maximumAge: 3000,
-        }
-      )
+  // 分三种情况1,常规浏览器2，微信小程序webview3,app的webview
+  // 1,常规浏览器
+  if (
+    (window as any).__wxjs_environment == 'miniprogram' ||
+    (window as any).jsBridge !== 'undefined'
+  ) {
+    //调取信电接口获取位置信息
+    const response = await fetch('/ai_customer/location', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
     })
+    if (!response.ok) {
+      throw new Error(`API请求失败: ${response.status}`)
+    }
+    const data = await response.json()
+    return data.location
   } else {
-    throw new Error('浏览器不支持定位')
+    if (navigator.geolocation) {
+      const { useGlobalStore } = await import('@/stores/global')
+      const globalStore = useGlobalStore()
+      // 先清除已存在的监听器，避免重复监听
+      if (globalStore.watchid) {
+        navigator.geolocation.clearWatch(globalStore.watchid)
+      }
+      return new Promise((resolve, reject) => {
+        let watchId: number | null = null
+        watchId = navigator.geolocation.watchPosition(
+          (position) => {
+            try {
+              // 构建位置数据对象
+              const locationData = {
+                latitude: position.coords.latitude,
+                longitude: position.coords.longitude,
+              }
+              // 设置watchId到全局状态，以便后续可以清除监听
+              globalStore.setWatchid(watchId)
+              // 上传位置信息到服务器
+              console.log('获取到位置:', globalStore.currentLocation)
+              // 解析位置数据
+              resolve(locationData)
+            } catch (storeError) {
+              console.error('更新全局位置状态失败:', storeError)
+              resolve(position)
+            }
+          },
+          (error) => {
+            reject(error)
+          },
+          {
+            enableHighAccuracy: true,
+            timeout: 10000,
+            maximumAge: 3000,
+          }
+        )
+      })
+    } else {
+      throw new Error('浏览器不支持定位')
+    }
   }
 }
 
