@@ -16,33 +16,22 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue'
 import { useGlobalStore } from '@/stores/global'
-import { getCurrentLocation, loadAppConfig } from '@/services/deepseekService'
+import {
+  getCurrentLocation,
+  loadAppConfig,
+  generateRandomString,
+} from '@/services/deepseekService'
 const globalStore = useGlobalStore()
 const AMap: any = ref(null)
 
 // 确保只在客户端环境执行地图相关代码
 onMounted(async () => {
-  // 加载应用配置
-  const appConfig: any = await loadAppConfig()
   // 检查是否在客户端环境
   if (process.client) {
-    // 使用类型断言解决TypeScript类型错误
-    ;(window as any)._AMapSecurityConfig = {
-      securityJsCode: appConfig.securityJsCode,
-    }
     try {
-      // 动态导入AMapLoader以避免SSR问题
-      const { default: DynamicAMapLoader } = await import(
-        '@amap/amap-jsapi-loader'
-      )
-      const AMapInstance = await DynamicAMapLoader.load({
-        key: appConfig.key,
-        version: '2.0',
-        plugins: ['AMap.Geocoder'],
-      })
-
-      AMap.value = AMapInstance
-
+      // 生成随机的chat_id
+      const chatId = generateRandomString(10)
+      globalStore.setChatId(chatId)
       // 获取当前位置
       getCurrentLocation().then((locationData: any) => {
         // 根据经纬度获取地址信息
@@ -66,7 +55,20 @@ onUnmounted(() => {
  * @returns {Promise} 返回地址信息的Promise
  */
 // 只在客户端环境使用的函数
-function getAddressByLatLng(lnglat: number[]) {
+async function getAddressByLatLng(lnglat: number[]) {
+  const appConfig: any = await loadAppConfig()
+  // 使用类型断言解决TypeScript类型错误
+  ;(window as any)._AMapSecurityConfig = {
+    securityJsCode: appConfig.securityJsCode,
+  }
+  const { default: DynamicAMapLoader } = await import('@amap/amap-jsapi-loader')
+  const AMapInstance = await DynamicAMapLoader.load({
+    key: appConfig.key,
+    version: '2.0',
+    plugins: ['AMap.Geocoder'],
+  })
+
+  AMap.value = AMapInstance
   return new Promise((resolve, reject) => {
     // 检查是否在客户端环境和AMap是否已加载
     if (!process.client || !AMap.value || !lnglat || lnglat.length !== 2) {

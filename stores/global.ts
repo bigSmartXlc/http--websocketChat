@@ -5,14 +5,16 @@ export const useGlobalStore = defineStore('global', {
   // 状态
   state: () => ({
     watchid: null,
+    chatId: '',
     userInfo: {
+      user_id: 'test1',
       phone: '1870272XXXX',
       name: '测试用户',
     },
     locationData: {
       latitude: 30.620792,
       longitude: 114.235447,
-      address: '武汉市',
+      address: '武汉市区',
     },
     appConfig: {
       apiBaseUrl: '',
@@ -24,6 +26,9 @@ export const useGlobalStore = defineStore('global', {
 
   // 计算属性
   getters: {
+    chatID(state) {
+      return state.chatId
+    },
     isLoggedIn: (state) => !!state.userInfo,
     currentUserInfo: (state) => state.userInfo,
     currentLocation: (state) => state.locationData,
@@ -31,6 +36,9 @@ export const useGlobalStore = defineStore('global', {
 
   // 方法
   actions: {
+    setChatId(chatId: string) {
+      this.chatId = chatId
+    },
     async updateLocation(location: any) {
       this.locationData = {
         ...this.locationData,

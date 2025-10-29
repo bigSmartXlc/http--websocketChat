@@ -1,4 +1,5 @@
 // DeepSeek AI 服务模块
+
 // 定义配置接口
 export interface AppConfig {
   apiBaseUrl: string
@@ -108,12 +109,33 @@ export interface StreamCallbacks {
   onComplete: () => void
 }
 
+/**
+ * 生成指定长度的随机字符串
+ * @param length 字符串长度
+ * @returns 随机字符串
+ */
+export const generateRandomString = function (length: number): string {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'
+  let result = ''
+  const charsLength = chars.length
+  for (let i = 0; i < length; i++) {
+    result += chars.charAt(Math.floor(Math.random() * charsLength))
+  }
+  return result
+}
+
 // 修改 sendChatMessageStream 函数的类型定义
 export const sendChatMessageStream = async (
   //经纬度
   position: {
     latitude: number
     longitude: number
+  },
+  info: {
+    user_id: string
+    phone: string
+    name: string
+    chat_id: string
   },
   messages: Array<{ role: 'user' | 'ai'; content: string }>,
   onChunk: (chunk: string | StreamChunk) => void,
@@ -123,8 +145,8 @@ export const sendChatMessageStream = async (
     const requestBody = {
       latitude: position.latitude,
       longitude: position.longitude,
-      user_id: '123',
-      chat_id: 'XX',
+      user_id: info.phone,
+      chat_id: info.chat_id,
       question: messages[messages.length - 1].content,
     }
 
@@ -223,7 +245,7 @@ export const getCurrentLocation = async () => {
   // 1,常规浏览器
   if (
     (window as any).__wxjs_environment == 'miniprogram' ||
-    (window as any).jsBridge !== 'undefined'
+    (window as any).jsBridge !== undefined
   ) {
     //调取信电接口获取位置信息
     const response = await fetch('/ai_customer/location', {
@@ -238,9 +260,9 @@ export const getCurrentLocation = async () => {
     const data = await response.json()
     return data.location
   } else {
-    if (navigator.geolocation) {
-      const { useGlobalStore } = await import('@/stores/global')
-      const globalStore = useGlobalStore()
+    const { useGlobalStore } = await import('@/stores/global')
+    const globalStore = useGlobalStore()
+    if (navigator.geolocation && window.location.protocol !== 'http:') {
       // 先清除已存在的监听器，避免重复监听
       if (globalStore.watchid) {
         navigator.geolocation.clearWatch(globalStore.watchid)
@@ -272,12 +294,18 @@ export const getCurrentLocation = async () => {
           {
             enableHighAccuracy: true,
             timeout: 10000,
-            maximumAge: 3000,
+            maximumAge: 30000,
           }
         )
       })
     } else {
-      throw new Error('浏览器不支持定位')
+      return new Promise((resolve, reject) => {
+        const locationData = {
+          latitude: globalStore.locationData.latitude,
+          longitude: globalStore.locationData.longitude,
+        }
+        reject(locationData)
+      })
     }
   }
 }

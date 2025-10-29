@@ -96,11 +96,30 @@ body {
 }
 
 .normal-content {
-  line-height: 16px;
+  line-height: 25px;
+  font-size: 16px;
+  font-family: -apple-system, blinkmacsystemfont, 'Helvetica Neue', helvetica,
+    segoe ui, arial, roboto, 'PingFang SC', 'miui', 'Hiragino Sans GB',
+    'Microsoft Yahei', sans-serif, 'Source Han Serif';
 }
 
 .reasoning-content {
   max-height: 450px;
   overflow: auto;
   color: #90a1af;
+}
+
+.icon {
+  margin-left: 15px;
+  width: 20px;
+}
+.leftIcon {
+  margin-right: 10px;
+  width: 20px;
+}
+.preset-question-item {
+  cursor: pointer;
+  margin-bottom: 15px;
+  display: flex;
+  align-items: anchor-center;
 }

@@ -6,6 +6,9 @@ export default defineNuxtConfig({
   runtimeConfig: {
     public: {},
   },
+  devServer: {
+    host: 'localhost',
+  },
   app: {
     head: {
       title: '武汉停车AI助手',
@@ -29,9 +32,7 @@ export default defineNuxtConfig({
   vite: {
     server: {
       allowedHosts: [
-        '1f3ef122.r20.cpolar.top', // 你的 cpolar 域名
-        '596784a7.r7.cpolar.cn',
-        '6fdede94.r20.cpolar.top',
+        'c83cc0aac753.ngrok-free.app', // 你的 cpolar 域名
         // 可以加更多域名
       ],
       strictPort: true,
