@@ -21,6 +21,11 @@
         </div>
       </div>
     </div>
+    <div class="buttonQuestion">
+      <span v-for="item in buttonQuestion" :key="item.id" data-action="msg">{{
+        item.prompt_content
+      }}</span>
+    </div>
     <div class="chat-input">
       <input
         v-model="inputMessage"
@@ -70,6 +75,7 @@ interface PresetQuestion {
   id: string
 }
 const presetQuestions = ref<PresetQuestion[]>([])
+const buttonQuestion = ref<PresetQuestion[]>([])
 //拼接问题列表
 const presetQuestionsText = computed(() => {
   let text = `<ul class="preset-questions" style="list-style-type:decimal;cursor:pointer;">`
@@ -140,29 +146,22 @@ const getUserInfoAndAddWelcomeMessage = async () => {
 const getPrompt = async (prompt_type: string) => {
   try {
     const prompt = await getQueryPrompt(prompt_type)
-    presetQuestions.value = prompt
-      ? prompt
-      : [
-          {
-            prompt_content: `帮我查询${globalStore.locationData.address}附近的停车场`,
-            type: 'msg',
-            id: '1',
-          },
-          {
-            prompt_content: '帮查查最近的有空余车位的停车场',
-            type: 'msg',
-            id: '2',
-          },
-          {
-            prompt_content: '帮我导航到最近的停车场',
-            type: 'map',
-            id: '3',
-          },
-        ]
+    presetQuestions.value = prompt ? prompt : []
     getUserInfoAndAddWelcomeMessage()
   } catch (error) {
     console.error('获取查询提示词失败:', error)
     getUserInfoAndAddWelcomeMessage()
+    throw error
+  }
+}
+
+//获取按钮问题列表
+const getButtonPrompt = async () => {
+  try {
+    const prompt = await getQueryPrompt('BUTTON')
+    buttonQuestion.value = prompt ? prompt : []
+  } catch (error) {
+    console.error('获取按钮问题列表失败:', error)
     throw error
   }
 }
@@ -182,11 +181,10 @@ const locationWatchStop = watch(
 )
 
 //事件点击发送消息事件
-const handleClickSendMessage = (event: Event) => {
-  console.log(event)
+const handleClickSendMessage = (event: Event, type: string) => {
   // 检查点击的元素或其祖先是否是快速问题列表项
   const target = event.target as Element
-  const listItem = target.closest('li[data-action]')
+  const listItem = target.closest(`${type}[data-action]`)
   if (listItem) {
     // 触发自定义事件，传递问题内容
     const question = listItem.textContent?.trim()
@@ -203,15 +201,28 @@ const handleClickPresetQuestion = (event: Event) => {
 }
 
 onMounted(async () => {
-  const chatContainer = document.querySelector('.chat-container')
+  getButtonPrompt()
+  const chatContainer = document.querySelector('.chat-messages')
+  const questionContainer = document.querySelector('.buttonQuestion')
   if (chatContainer) {
     chatContainer.addEventListener('click', (event) => {
       const actionElement = (event.target as HTMLElement).closest(
         '[data-action]'
       ) as HTMLElement
-      console.log(actionElement)
       if (actionElement?.dataset.action === 'msg') {
-        handleClickSendMessage(event)
+        handleClickSendMessage(event, 'li')
+      } else if (actionElement?.dataset.action === 'map') {
+        handleClickPresetQuestion(event)
+      }
+    })
+  }
+  if (questionContainer) {
+    questionContainer.addEventListener('click', (event) => {
+      const actionElement = (event.target as HTMLElement).closest(
+        '[data-action]'
+      ) as HTMLElement
+      if (actionElement?.dataset.action === 'msg') {
+        handleClickSendMessage(event, 'span')
       } else if (actionElement?.dataset.action === 'map') {
         handleClickPresetQuestion(event)
       }
@@ -396,13 +407,30 @@ const formatMessageContent = (
 </script>
 
 <style scoped>
+.buttonQuestion {
+  padding: 5px 14px;
+  display: flex;
+  gap: 10px;
+  overflow: auto;
+  /* 隐藏滚动条 */
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* Internet Explorer 10+ */
+}
+.buttonQuestion span {
+  background-color: #ffffff;
+  color: #837d75;
+  font-size: 14px;
+  padding: 5px 10px;
+  border-radius: 12px;
+  /* 不允许换行 */
+  white-space: nowrap;
+}
 .chat-container {
   display: flex;
   flex-direction: column;
   height: 100%;
   max-width: 800px;
   margin: 0 auto;
-  background-color: white;
   border-radius: 8px;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
   overflow: hidden;
@@ -413,7 +441,6 @@ const formatMessageContent = (
   flex: 1;
   overflow-y: auto;
   padding: 1rem;
-  background-color: #f9f9f9;
 }
 
 .message {
@@ -451,7 +478,7 @@ const formatMessageContent = (
 }
 
 .message.user .message-content {
-  background-color: #4c51bf;
+  background: linear-gradient(45deg, #1fd29d, #03aab9);
   color: white;
   border-bottom-right-radius: 4px;
 }
@@ -490,7 +517,7 @@ const formatMessageContent = (
 .send-button {
   margin-left: 0.75rem;
   padding: 0.75rem 1.5rem;
-  background-color: #4c51bf;
+  background: linear-gradient(45deg, #1fd29d, #03aab9);
   color: white;
   border: none;
   border-radius: 20px;

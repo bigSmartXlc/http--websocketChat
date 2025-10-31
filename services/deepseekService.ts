@@ -262,7 +262,11 @@ export const getCurrentLocation = async () => {
   } else {
     const { useGlobalStore } = await import('@/stores/global')
     const globalStore = useGlobalStore()
-    if (navigator.geolocation && window.location.protocol !== 'http:') {
+    if (
+      navigator.geolocation &&
+      (window.location.protocol !== 'http:' ||
+        window.location.hostname === 'localhost')
+    ) {
       // 先清除已存在的监听器，避免重复监听
       if (globalStore.watchid) {
         navigator.geolocation.clearWatch(globalStore.watchid)
@@ -279,8 +283,6 @@ export const getCurrentLocation = async () => {
               }
               // 设置watchId到全局状态，以便后续可以清除监听
               globalStore.setWatchid(watchId)
-              // 上传位置信息到服务器
-              console.log('获取到位置:', globalStore.currentLocation)
               // 解析位置数据
               resolve(locationData)
             } catch (storeError) {

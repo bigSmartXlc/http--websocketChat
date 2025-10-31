@@ -63,7 +63,7 @@ body {
   }
 
   .message {
-    max-width: 90%;
+    max-width: 99%;
   }
 
   .chat-input {
@@ -119,7 +119,18 @@ body {
 }
 .preset-question-item {
   cursor: pointer;
-  margin-bottom: 15px;
+  margin-bottom: 5px;
   display: flex;
   align-items: anchor-center;
+}
+
+// 主题色变量
+:root {
+  --primary-color: #1fd29d;
+  --secondary-color: #03aab9;
+  --ctBackground: linear-gradient(
+    45deg,
+    var(--primary-color),
+    var(--secondary-color)
+  );
 }
