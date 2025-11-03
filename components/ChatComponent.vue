@@ -1,14 +1,8 @@
 <template>
   <div class="chat-container">
     <div class="chat-messages" ref="messagesContainer">
-      <div
-        v-for="message in messages"
-        :key="message.id"
-        :class="['message', message.role]">
-        <div
-          class="message-content"
-          v-html="
-            formatMessageContent(message.content, message.reasoning, message.id)
+      <div v-for="message in messages" :key="message.id" :class="['message', message.role]">
+        <div class="message-content" v-html="formatMessageContent(message.content, message.reasoning, message.id)
           "></div>
       </div>
       <div v-if="loading" class="message ai">
@@ -27,16 +21,9 @@
       }}</span>
     </div>
     <div class="chat-input">
-      <input
-        v-model="inputMessage"
-        @keyup.enter="sendMessage"
-        placeholder="输入您的问题..."
-        :disabled="loading"
+      <input v-model="inputMessage" @keyup.enter="sendMessage" placeholder="输入您的问题..." :disabled="loading"
         class="message-input" />
-      <button
-        @click="sendMessage"
-        :disabled="loading || !inputMessage.trim()"
-        class="send-button">
+      <button @click="sendMessage" :disabled="loading || !inputMessage.trim()" class="send-button">
         发送
       </button>
     </div>
@@ -48,6 +35,7 @@ import { ref, onMounted, nextTick, onUnmounted, computed } from 'vue'
 import {
   sendChatMessageStream,
   getUserInfo,
+  getAppInitInfo,
   getQueryPrompt,
 } from '@/services/deepseekService'
 import { useGlobalStore } from '@/stores/global'
@@ -80,11 +68,9 @@ const buttonQuestion = ref<PresetQuestion[]>([])
 const presetQuestionsText = computed(() => {
   let text = `<ul class="preset-questions" style="list-style-type:decimal;cursor:pointer;">`
   presetQuestions.value.forEach((item) => {
-    text += `<li data-action="${
-      item.type || 'msg'
-    }" class="preset-question-item"><svg t="1761638646841" class="leftIcon" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" p-id="3819" width="32" height="32"><path d="M241.6 512c0 149.5 121.1 270.8 270.4 270.8S782.4 661.6 782.4 512 661.3 241.2 512 241.2 241.6 362.5 241.6 512z m291.1-221.8c104.4 0 189.1 84.8 189.1 189.4 0 29.5-6.8 57.5-18.8 82.4 3.6-15 5.5-30.6 5.5-46.7 0-111-89.9-201.1-200.8-201.1-40.7 0-78.6 12.2-110.3 33 34.4-35.2 82.3-57 135.3-57z" fill="#8a8a8a" p-id="3820"></path><path d="M537.7 133c192.4 0 356.8 120.1 422.5 289.5C916.6 217.4 734.7 63.6 517 63.6c-250.3 0-453.2 203.2-453.2 453.8 0 57.9 10.8 113.3 30.6 164.3-6.5-30.6-9.9-62.3-9.9-94.9C84.5 336.2 287.4 133 537.7 133z" fill="#8a8a8a" p-id="3821"></path><path d="M213.1 740c-75.6-131.2-58.6-290.4 30.7-401.8-122.2 110.2-155.3 294.7-69.7 443.1 98.3 170.6 316.2 229 486.5 130.5 39.4-22.8 72.8-51.9 99.6-85.4-18.2 16.5-38.5 31.3-60.6 44C529.3 969 311.5 910.5 213.1 740z" fill="#8a8a8a" p-id="3822"></path><path d="M788.1 266.6c-30.1-17.4-62.9-27.3-96.5-30.2 18.3 5.1 36 12.5 52.9 22.3C874.9 334 907.4 522.2 817 678.8c-69.5 120.5-191.3 187.3-303.1 177.5 122.4 34.4 268.1-33.2 346.7-169.5 90.3-156.7 57.9-344.8-72.5-420.2z" fill="#8a8a8a" p-id="3823"></path></svg>${
-      item.prompt_content
-    }<svg t="1761635252640" class="icon" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" p-id="2662" width="32" height="32"><path d="M84.960699 390.521106l888.36099-135.63901-719.930132 238.486172zM257.863173 503.802038l719.930131-238.486172-629.007278 287.673945 10.43377 219.10917z" fill="#707070" p-id="2663"></path><path d="M375.615721 812.343523l-11.924309-219.109171 156.50655 99.866085zM634.969432 746.759825l-119.243086-77.508005-156.50655-99.866085 629.007278-287.673945z" fill="#707070" p-id="2664"></path></svg></li>`
+    text += `<li data-action="${item.type || 'msg'
+      }" class="preset-question-item"><svg t="1761638646841" class="leftIcon" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" p-id="3819" width="32" height="32"><path d="M241.6 512c0 149.5 121.1 270.8 270.4 270.8S782.4 661.6 782.4 512 661.3 241.2 512 241.2 241.6 362.5 241.6 512z m291.1-221.8c104.4 0 189.1 84.8 189.1 189.4 0 29.5-6.8 57.5-18.8 82.4 3.6-15 5.5-30.6 5.5-46.7 0-111-89.9-201.1-200.8-201.1-40.7 0-78.6 12.2-110.3 33 34.4-35.2 82.3-57 135.3-57z" fill="#8a8a8a" p-id="3820"></path><path d="M537.7 133c192.4 0 356.8 120.1 422.5 289.5C916.6 217.4 734.7 63.6 517 63.6c-250.3 0-453.2 203.2-453.2 453.8 0 57.9 10.8 113.3 30.6 164.3-6.5-30.6-9.9-62.3-9.9-94.9C84.5 336.2 287.4 133 537.7 133z" fill="#8a8a8a" p-id="3821"></path><path d="M213.1 740c-75.6-131.2-58.6-290.4 30.7-401.8-122.2 110.2-155.3 294.7-69.7 443.1 98.3 170.6 316.2 229 486.5 130.5 39.4-22.8 72.8-51.9 99.6-85.4-18.2 16.5-38.5 31.3-60.6 44C529.3 969 311.5 910.5 213.1 740z" fill="#8a8a8a" p-id="3822"></path><path d="M788.1 266.6c-30.1-17.4-62.9-27.3-96.5-30.2 18.3 5.1 36 12.5 52.9 22.3C874.9 334 907.4 522.2 817 678.8c-69.5 120.5-191.3 187.3-303.1 177.5 122.4 34.4 268.1-33.2 346.7-169.5 90.3-156.7 57.9-344.8-72.5-420.2z" fill="#8a8a8a" p-id="3823"></path></svg>${item.prompt_content
+      }<svg t="1761635252640" class="icon" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" p-id="2662" width="32" height="32"><path d="M84.960699 390.521106l888.36099-135.63901-719.930132 238.486172zM257.863173 503.802038l719.930131-238.486172-629.007278 287.673945 10.43377 219.10917z" fill="#707070" p-id="2663"></path><path d="M375.615721 812.343523l-11.924309-219.109171 156.50655 99.866085zM634.969432 746.759825l-119.243086-77.508005-156.50655-99.866085 629.007278-287.673945z" fill="#707070" p-id="2664"></path></svg></li>`
   })
   return text + `</ul>`
 })
@@ -130,12 +116,24 @@ const getUserInfoAndAddWelcomeMessage = async () => {
     //   phone: userInfo.phone,
     //   name: userInfo.name,
     // }
+    //获取应用初始化信息
+    const { appid, shareId, outLinkUid } = globalStore.GetAppConfig
+    let appInitInfo: any = null
+    if (!appid || !shareId || !outLinkUid) {
+      throw new Error('应用配置参数缺失')
+    } else {
+      appInitInfo = await getAppInitInfo({
+        appid,
+        shareId,
+        outLinkUid,
+      })
+    }
+    console.log('应用初始化信息:', appInitInfo);
     // 添加欢迎消息
     messages.value.push({
       id: 'welcome',
       role: 'ai',
-      content: `<p>用户<span style="text-decoration:underline;color:blue;">${globalStore.userInfo.phone}</span>您好！您当前的位置为<span style="text-decoration:underline;color:blue;">${globalStore.currentLocation.address}(${globalStore.currentLocation.latitude},${globalStore.currentLocation.longitude})</span>附近,请问有什么可以帮您?您可以直接问或者点击下列问题列表中的问题。</p>
-      ${presetQuestionsText.value}`,
+      content: `<p>${appInitInfo.app.chatConfig.welcomeText || `用户您好！您当前的位置为<span style="text-decoration:underline;color:blue;">${globalStore.currentLocation.address}(${globalStore.currentLocation.latitude},${globalStore.currentLocation.longitude})</span>附近,请问有什么可以帮您?您可以直接问或者点击下列问题列表中的问题。`}</p>${presetQuestionsText.value}`,
     })
   } catch (error) {
     console.error('获取用户信息失败:', error)
@@ -196,7 +194,26 @@ const handleClickSendMessage = (event: Event, type: string) => {
 const handleClickPresetQuestion = (event: Event) => {
   // 检查点击的元素是否是快速问题列表项
   if (event.target instanceof HTMLLIElement) {
-    ;(window as any).wx.miniProgram.redirectTo({ url: '/pages/map/map' })
+    ; (window as any).wx.miniProgram.redirectTo({ url: '/pages/map/map' })
+  }
+}
+
+//监听点击事件
+const handleClickChatMessage = (container: HTMLElement) => {
+  // 检查点击的元素是否是聊天消息项
+  if (container) {
+    if (container instanceof HTMLLIElement) {
+      container.addEventListener('click', (event) => {
+        const actionElement = (event.target as HTMLElement).closest(
+          '[data-action]'
+        ) as HTMLElement
+        if (actionElement?.dataset.action === 'msg') {
+          handleClickSendMessage(event, 'li')
+        } else if (actionElement?.dataset.action === 'map') {
+          handleClickPresetQuestion(event)
+        }
+      })
+    }
   }
 }
 
@@ -204,30 +221,8 @@ onMounted(async () => {
   getButtonPrompt()
   const chatContainer = document.querySelector('.chat-messages')
   const questionContainer = document.querySelector('.buttonQuestion')
-  if (chatContainer) {
-    chatContainer.addEventListener('click', (event) => {
-      const actionElement = (event.target as HTMLElement).closest(
-        '[data-action]'
-      ) as HTMLElement
-      if (actionElement?.dataset.action === 'msg') {
-        handleClickSendMessage(event, 'li')
-      } else if (actionElement?.dataset.action === 'map') {
-        handleClickPresetQuestion(event)
-      }
-    })
-  }
-  if (questionContainer) {
-    questionContainer.addEventListener('click', (event) => {
-      const actionElement = (event.target as HTMLElement).closest(
-        '[data-action]'
-      ) as HTMLElement
-      if (actionElement?.dataset.action === 'msg') {
-        handleClickSendMessage(event, 'span')
-      } else if (actionElement?.dataset.action === 'map') {
-        handleClickPresetQuestion(event)
-      }
-    })
-  }
+  handleClickChatMessage(chatContainer as HTMLElement)
+  handleClickChatMessage(questionContainer as HTMLElement)
 })
 
 const sendMessage = async () => {
@@ -413,9 +408,12 @@ const formatMessageContent = (
   gap: 10px;
   overflow: auto;
   /* 隐藏滚动条 */
-  scrollbar-width: none; /* Firefox */
-  -ms-overflow-style: none; /* Internet Explorer 10+ */
+  scrollbar-width: none;
+  /* Firefox */
+  -ms-overflow-style: none;
+  /* Internet Explorer 10+ */
 }
+
 .buttonQuestion span {
   background-color: #ffffff;
   color: #837d75;
@@ -425,6 +423,7 @@ const formatMessageContent = (
   /* 不允许换行 */
   white-space: nowrap;
 }
+
 .chat-container {
   display: flex;
   flex-direction: column;
@@ -632,10 +631,12 @@ const formatMessageContent = (
     transform: translateY(0px);
     opacity: 0.6;
   }
+
   50% {
     transform: translateY(-5px);
     opacity: 1;
   }
+
   100% {
     transform: translateY(0px);
     opacity: 0.6;

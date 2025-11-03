@@ -8,19 +8,22 @@ export const useGlobalStore = defineStore('global', {
     chatId: '',
     userInfo: {
       user_id: 'test1',
-      phone: '1870272XXXX',
+      phone: '187****0272',
       name: '测试用户',
     },
     locationData: {
       latitude: 30.620792,
       longitude: 114.235447,
-      address: '武汉市区',
+      address: '测试地址',
     },
     appConfig: {
       apiBaseUrl: '',
       defaultApiKey: '',
       securityJsCode: '',
       key: '',
+      appid: '',
+      shareId: '',
+      outLinkUid: '',
     },
   }),
 
@@ -28,6 +31,9 @@ export const useGlobalStore = defineStore('global', {
   getters: {
     chatID(state) {
       return state.chatId
+    },
+    GetAppConfig(state) {
+      return state.appConfig
     },
     isLoggedIn: (state) => !!state.userInfo,
     currentUserInfo: (state) => state.userInfo,

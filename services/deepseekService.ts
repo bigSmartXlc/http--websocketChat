@@ -6,6 +6,9 @@ export interface AppConfig {
   defaultApiKey: string
   securityJsCode: string
   key: string
+  appid: string
+  shareId: string
+  outLinkUid: string
 }
 
 // 加载配置文件
@@ -14,6 +17,9 @@ let appConfig: AppConfig = {
   defaultApiKey: '46546sdffdsffdsfe',
   securityJsCode: 'f2c5b796509cce81aa504808c2e066f1',
   key: '3a4b3b633dc42eec565aee94918477e0',
+  appid: '68f74407c7862b21dfdb1307',
+  shareId: 'x2IldcrczDsW9y0ExTznAfpk',
+  outLinkUid: 'shareChat-1762133983352-gyTOGWYRsDYH3VkOlKlYZqYj',
 }
 
 /**
@@ -33,6 +39,9 @@ export const loadAppConfig = async (): Promise<AppConfig> => {
         defaultApiKey: config.defaultApiKey || appConfig.defaultApiKey,
         securityJsCode: config.securityJsCode || appConfig.securityJsCode,
         key: config.key || appConfig.key,
+        appid: config.appid || appConfig.appid,
+        shareId: config.shareId || appConfig.shareId,
+        outLinkUid: config.outLinkUid || appConfig.outLinkUid,
       }
       globalStore.setAppConfig(config)
       return config
@@ -369,6 +378,35 @@ export const getQueryPrompt = async (prompt_type: string) => {
     return data.data
   } catch (error) {
     console.error('获取查询提示词失败:', error)
+    throw error
+  }
+}
+
+//获取应用初始化信息
+export const getAppInitInfo = async (queryParams: any) => {
+  try {
+    const query = new URLSearchParams()
+    for (const key in queryParams) {
+      query.append(key, queryParams[key])
+    }
+    const response = await fetch(
+      'http://zwork.wuhanparking.com:9000/api/core/chat/outLink/init?' +
+        query.toString(),
+      {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      }
+    )
+    if (!response.ok) {
+      throw new Error(`API请求失败: ${response.status}`)
+    }
+    const data = await response.json()
+    console.log('获取应用初始化信息成功:', data)
+    return data.data
+  } catch (error) {
+    console.error('获取应用初始化信息失败:', error)
     throw error
   }
 }
