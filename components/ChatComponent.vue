@@ -179,17 +179,17 @@ const locationWatchStop = watch(
 )
 
 //事件点击发送消息事件
-const handleClickSendMessage = (event: Event, type: string) => {
-  // 检查点击的元素或其祖先是否是快速问题列表项
-  const target = event.target as Element
-  const listItem = target.closest(`${type}[data-action]`)
-  if (listItem) {
-    // 触发自定义事件，传递问题内容
-    const question = listItem.textContent?.trim()
-    inputMessage.value = question
-    sendMessage()
-  }
-}
+// const handleClickSendMessage = (event: Event, type: string) => {
+//   // 检查点击的元素或其祖先是否是快速问题列表项
+//   const target = event.target as Element
+//   const listItem = target.closest(`${type}[data-action]`)
+//   if (listItem) {
+//     // 触发自定义事件，传递问题内容
+//     const question = listItem.textContent?.trim()
+//     inputMessage.value = question
+//     sendMessage()
+//   }
+// }
 //导航跳转小程序
 const handleClickPresetQuestion = (event: Event) => {
   // 检查点击的元素是否是快速问题列表项
@@ -202,18 +202,21 @@ const handleClickPresetQuestion = (event: Event) => {
 const handleClickChatMessage = (container: HTMLElement) => {
   // 检查点击的元素是否是聊天消息项
   if (container) {
-    if (container instanceof HTMLLIElement) {
-      container.addEventListener('click', (event) => {
-        const actionElement = (event.target as HTMLElement).closest(
-          '[data-action]'
-        ) as HTMLElement
-        if (actionElement?.dataset.action === 'msg') {
-          handleClickSendMessage(event, 'li')
-        } else if (actionElement?.dataset.action === 'map') {
-          handleClickPresetQuestion(event)
+    container.addEventListener('click', (event) => {
+      const actionElement = (event.target as HTMLElement).closest(
+        '[data-action]'
+      ) as HTMLElement
+      if (actionElement?.dataset.action === 'msg') {
+        if (actionElement) {
+          // 触发自定义事件，传递问题内容
+          const question = actionElement.textContent?.trim()
+          inputMessage.value = question
+          sendMessage()
         }
-      })
-    }
+      } else if (actionElement?.dataset.action === 'map') {
+        handleClickPresetQuestion(event)
+      }
+    })
   }
 }
 

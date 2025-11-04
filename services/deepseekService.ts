@@ -250,6 +250,8 @@ export const sendChatMessageStream = async (
 
 //h5获取当前位置信息（单次获取）
 export const getCurrentLocation = async () => {
+  const { useGlobalStore } = await import('@/stores/global')
+  const globalStore = useGlobalStore()
   // 分三种情况1,常规浏览器2，微信小程序webview3,app的webview
   // 1,常规浏览器
   if (
@@ -257,20 +259,36 @@ export const getCurrentLocation = async () => {
     (window as any).jsBridge !== undefined
   ) {
     //调取信电接口获取位置信息
-    const response = await fetch('/ai_customer/location', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    })
-    if (!response.ok) {
-      throw new Error(`API请求失败: ${response.status}`)
+    if (globalStore.watchid) {
+      clearInterval(globalStore.watchid)
     }
-    const data = await response.json()
-    return data.location
+    // 定时获取
+    const intervalId = setInterval(async () => {
+      const response = await fetch('/ai_customer/location', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      })
+      if (!response.ok) {
+        throw new Error(`API请求失败: ${response.status}`)
+      }
+      const data = await response.json()
+      getAddressByLatLng([
+        data.location.longitude,
+        data.location.latitude,
+      ]).catch((error) => {
+        globalStore.updateLocation({
+          longitude: data.location.longitude,
+          latitude: data.location.latitude,
+          address: '定位中...',
+        })
+        console.error('获取地址失败:', error)
+      })
+      return data.location
+    }, 20000)
+    globalStore.setWatchid(intervalId)
   } else {
-    const { useGlobalStore } = await import('@/stores/global')
-    const globalStore = useGlobalStore()
     if (
       navigator.geolocation &&
       (window.location.protocol !== 'http:' ||
@@ -292,7 +310,19 @@ export const getCurrentLocation = async () => {
               }
               // 设置watchId到全局状态，以便后续可以清除监听
               globalStore.setWatchid(watchId)
+              console.log('watchId:', watchId)
               // 解析位置数据
+              getAddressByLatLng([
+                position.coords.longitude,
+                position.coords.latitude,
+              ]).catch((error) => {
+                globalStore.updateLocation({
+                  longitude: position.coords.longitude,
+                  latitude: position.coords.latitude,
+                  address: '定位中...',
+                })
+                console.error('获取地址失败:', error)
+              })
               resolve(locationData)
             } catch (storeError) {
               console.error('更新全局位置状态失败:', storeError)
@@ -319,6 +349,63 @@ export const getCurrentLocation = async () => {
       })
     }
   }
+}
+
+// 高德地图逆地理编码接口
+/**
+ * 根据经纬度获取地址信息（逆地理编码）
+ * @param {Array} lnglat 经纬度坐标 [经度, 纬度]
+ * @returns {Promise} 返回地址信息的Promise
+ */
+// 只在客户端环境使用的函数
+export async function getAddressByLatLng(lnglat: number[]) {
+  const appConfig: any = await loadAppConfig()
+  // 使用类型断言解决TypeScript类型错误
+  ;(window as any)._AMapSecurityConfig = {
+    securityJsCode: appConfig.securityJsCode,
+  }
+  const { default: DynamicAMapLoader } = await import('@amap/amap-jsapi-loader')
+  const AMapInstance = await DynamicAMapLoader.load({
+    key: appConfig.key,
+    version: '2.0',
+    plugins: ['AMap.Geocoder'],
+  })
+
+  const AMap = AMapInstance
+  return new Promise((resolve, reject) => {
+    // 检查是否在客户端环境和AMap是否已加载
+    if (!process.client || !AMap || !lnglat || lnglat.length !== 2) {
+      reject(new Error('参数错误或不在客户端环境'))
+      return
+    }
+    try {
+      // 创建逆地理编码实例
+      const geocoder = new AMap.Geocoder({
+        city: '武汉',
+        radius: 1000,
+        extensions: 'all',
+      })
+      // 执行逆地理编码
+      geocoder.getAddress(lnglat, (status: string, result: any) => {
+        if (status === 'complete' && result.regeocode) {
+          const globalStore = useGlobalStore()
+          // 更新位置信息到全局状态，使用正确的格式
+          globalStore.updateLocation({
+            longitude: lnglat[0],
+            latitude: lnglat[1],
+            address:
+              result.regeocode.aois[0].name ||
+              result.regeocode.formattedAddress,
+          })
+        } else {
+          reject(new Error('无法获取地址信息'))
+        }
+      })
+    } catch (error) {
+      console.error('执行逆地理编码失败:', error)
+      reject(error)
+    }
+  })
 }
 
 //获取微信token

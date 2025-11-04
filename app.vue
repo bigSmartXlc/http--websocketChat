@@ -27,11 +27,9 @@ import { ref, onMounted, onUnmounted, computed } from 'vue'
 import { useGlobalStore } from '@/stores/global'
 import {
   getCurrentLocation,
-  loadAppConfig,
   generateRandomString,
 } from '@/services/deepseekService'
 const globalStore = useGlobalStore()
-const AMap: any = ref(null)
 const userLocation = computed(() => globalStore.currentLocation.address)
 const userPhone = computed(() => globalStore.currentUserInfo.phone)
 // 确保只在客户端环境执行地图相关代码
@@ -44,19 +42,6 @@ onMounted(async () => {
       globalStore.setChatId(chatId)
       // 获取当前位置
       getCurrentLocation()
-        .then((locationData: any) => {
-          // 根据经纬度获取地址信息
-          getAddressByLatLng([locationData.longitude, locationData.latitude])
-        })
-        .catch((error) => {
-          console.warn('位置信息获取失败，使用默认位置:', error)
-          // 直接设置默认位置信息，避免进一步错误
-          globalStore.updateLocation({
-            latitude: 30.620792,
-            longitude: 114.235447,
-            address: '武汉市',
-          })
-        })
     } catch (e) {
       console.error('地图加载失败:', e)
     }
@@ -68,61 +53,7 @@ onUnmounted(() => {
   globalStore.clearWatchid()
 })
 
-// 高德地图逆地理编码接口
-/**
- * 根据经纬度获取地址信息（逆地理编码）
- * @param {Array} lnglat 经纬度坐标 [经度, 纬度]
- * @returns {Promise} 返回地址信息的Promise
- */
-// 只在客户端环境使用的函数
-async function getAddressByLatLng(lnglat: number[]) {
-  const appConfig: any = await loadAppConfig()
-    // 使用类型断言解决TypeScript类型错误
-    ; (window as any)._AMapSecurityConfig = {
-      securityJsCode: appConfig.securityJsCode,
-    }
-  const { default: DynamicAMapLoader } = await import('@amap/amap-jsapi-loader')
-  const AMapInstance = await DynamicAMapLoader.load({
-    key: appConfig.key,
-    version: '2.0',
-    plugins: ['AMap.Geocoder'],
-  })
 
-  AMap.value = AMapInstance
-  return new Promise((resolve, reject) => {
-    // 检查是否在客户端环境和AMap是否已加载
-    if (!process.client || !AMap.value || !lnglat || lnglat.length !== 2) {
-      reject(new Error('参数错误或不在客户端环境'))
-      return
-    }
-    try {
-      // 创建逆地理编码实例
-      const geocoder = new AMap.value.Geocoder({
-        city: '武汉',
-        radius: 1000,
-        extensions: 'all',
-      })
-      // 执行逆地理编码
-      geocoder.getAddress(lnglat, (status: string, result: any) => {
-        if (status === 'complete' && result.regeocode) {
-          // 更新位置信息到全局状态，使用正确的格式
-          globalStore.updateLocation({
-            longitude: lnglat[0],
-            latitude: lnglat[1],
-            address:
-              result.regeocode.aois[0].name ||
-              result.regeocode.formattedAddress,
-          })
-        } else {
-          reject(new Error('无法获取地址信息'))
-        }
-      })
-    } catch (error) {
-      console.error('执行逆地理编码失败:', error)
-      reject(error)
-    }
-  })
-}
 </script>
 
 <style scoped>

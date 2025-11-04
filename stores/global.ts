@@ -55,6 +55,7 @@ export const useGlobalStore = defineStore('global', {
     },
     clearWatchid() {
       if (this.watchid) {
+        clearInterval(this.watchid)
         navigator.geolocation.clearWatch(this.watchid)
       }
       this.watchid = null
