@@ -31,10 +31,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, nextTick, onUnmounted, computed } from 'vue'
+import { ref, onMounted, nextTick, computed } from 'vue'
 import {
   sendChatMessageStream,
-  getUserInfo,
   getAppInitInfo,
   getQueryPrompt,
 } from '@/services/deepseekService'
@@ -47,10 +46,8 @@ interface Message {
   content: string
   reasoning?: string[] // 存储思考过程的数组
 }
-
 // 状态定义
 const globalStore = useGlobalStore()
-const address = computed(() => globalStore.currentLocation?.address)
 const messages = ref<Message[]>([])
 const inputMessage = ref('')
 const loading = ref(false)
@@ -106,29 +103,10 @@ const saveChatHistory = () => {
   }
 }
 
-const getUserInfoAndAddWelcomeMessage = async () => {
+const getAPPinfoAddWelcomeMessage = async () => {
   try {
-    // 获取查询参数id
-    // const urlParams = new URLSearchParams(window.location.search)
-    // const id: string = urlParams.get('id') || ''
-    // const userInfo = await getUserInfo(id)
-    // user.value = {
-    //   phone: userInfo.phone,
-    //   name: userInfo.name,
-    // }
     //获取应用初始化信息
-    const { appid, shareId, outLinkUid } = globalStore.GetAppConfig
-    let appInitInfo: any = null
-    if (!appid || !shareId || !outLinkUid) {
-      throw new Error('应用配置参数缺失')
-    } else {
-      appInitInfo = await getAppInitInfo({
-        appid,
-        shareId,
-        outLinkUid,
-      })
-    }
-    console.log('应用初始化信息:', appInitInfo);
+    const appInitInfo = await getAppInitInfo('1')
     // 添加欢迎消息
     messages.value.push({
       id: 'welcome',
@@ -136,7 +114,7 @@ const getUserInfoAndAddWelcomeMessage = async () => {
       content: `<p>${appInitInfo.app.chatConfig.welcomeText || `用户您好！您当前的位置为<span style="text-decoration:underline;color:blue;">${globalStore.currentLocation.address}(${globalStore.currentLocation.latitude},${globalStore.currentLocation.longitude})</span>附近,请问有什么可以帮您?您可以直接问或者点击下列问题列表中的问题。`}</p>${presetQuestionsText.value}`,
     })
   } catch (error) {
-    console.error('获取用户信息失败:', error)
+    console.error('获取应用初始化信息失败:', error)
   }
 }
 
@@ -145,10 +123,10 @@ const getPrompt = async (prompt_type: string) => {
   try {
     const prompt = await getQueryPrompt(prompt_type)
     presetQuestions.value = prompt ? prompt : []
-    getUserInfoAndAddWelcomeMessage()
+    getAPPinfoAddWelcomeMessage()
   } catch (error) {
     console.error('获取查询提示词失败:', error)
-    getUserInfoAndAddWelcomeMessage()
+    getAPPinfoAddWelcomeMessage()
     throw error
   }
 }
@@ -178,18 +156,6 @@ const locationWatchStop = watch(
   { immediate: false, deep: true } // 立即执行并深度监听
 )
 
-//事件点击发送消息事件
-// const handleClickSendMessage = (event: Event, type: string) => {
-//   // 检查点击的元素或其祖先是否是快速问题列表项
-//   const target = event.target as Element
-//   const listItem = target.closest(`${type}[data-action]`)
-//   if (listItem) {
-//     // 触发自定义事件，传递问题内容
-//     const question = listItem.textContent?.trim()
-//     inputMessage.value = question
-//     sendMessage()
-//   }
-// }
 //导航跳转小程序
 const handleClickPresetQuestion = (event: Event) => {
   // 检查点击的元素是否是快速问题列表项
@@ -271,9 +237,8 @@ const sendMessage = async () => {
     await sendChatMessageStream(
       globalStore.currentLocation,
       {
-        user_id: globalStore.userInfo.user_id,
+        user_id: globalStore.userInfo.uid,
         phone: globalStore.userInfo.phone,
-        name: globalStore.userInfo.name,
         chat_id: globalStore.chatID,
       },
       [userMessage],
@@ -309,7 +274,6 @@ const sendMessage = async () => {
       },
       () => {
         // 在onComplete回调中，可以进行完成后的处理
-        console.log('请求完成')
         // 如果最终内容为空，可以设置默认消息
         const messageIndex = messages.value.findIndex(
           (msg) => msg.id === aiMessageId
@@ -346,11 +310,6 @@ const sendMessage = async () => {
 
 const scrollToBottom = () => {
   if (messagesContainer.value) {
-    console.log(
-      'messagesContainer.value.scrollHeight',
-      messagesContainer.value.scrollHeight
-    )
-
     messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight
   }
 }

@@ -31,17 +31,19 @@ export default defineNuxtConfig({
   },
   vite: {
     server: {
-      allowedHosts: [
-        'c83cc0aac753.ngrok-free.app', // 你的 cpolar 域名
-        // 可以加更多域名
-      ],
+      allowedHosts: [],
       strictPort: true,
       proxy: {
         // 配置代理
-        '/ai_customer': {
-          target: 'http://zwork.wuhanparking.com:8090', // 目标服务器
+        '/onenet-prod-api/': {
+          target: 'http://192.168.0.203:9060', // 目标服务器
           changeOrigin: true,
-          rewrite: (path) => path.replace(/^\/ai_customer/, '/ai_customer'), // 保持路径不变
+          // 不需要重写，保留完整路径
+          secure: false, // 允许非HTTPS请求
+          headers: {
+            'X-Forwarded-For': '',
+            'X-Forwarded-Proto': '',
+          },
         },
       },
     },

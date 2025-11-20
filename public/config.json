@@ -1,9 +1,6 @@
 {
-  "apiBaseUrl": "/ai_customer/processing",
+  "apiBaseUrl": "/onenet-prod-api/ai_customer/",
   "defaultApiKey": "",
   "securityJsCode": "f2c5b796509cce81aa504808c2e066f1",
-  "key": "3a4b3b633dc42eec565aee94918477e0",
-  "appid": "68f74407c7862b21dfdb1307",
-  "shareId": "x2IldcrczDsW9y0ExTznAfpk",
-  "outLinkUid": "shareChat-1762133983352-gyTOGWYRsDYH3VkOlKlYZqYj"
+  "key": "3a4b3b633dc42eec565aee94918477e0"
 }
