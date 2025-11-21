@@ -70,9 +70,10 @@ async function requestInterceptor(options) {
   const baseURL = globalStore.GetAppConfig?.apiBaseUrl || requestConfig.baseURL
 
   // 构建完整URL
-  const url = options.url.startsWith('http')
-    ? options.url
-    : `${baseURL}${options.url}`
+  // const url = options.url.startsWith('http')
+  //   ? options.url
+  //   : `${baseURL}${options.url}`
+  const url = `${baseURL}${options.url}`
 
   // 合并默认配置和自定义配置
   const mergedOptions = {
@@ -290,11 +291,15 @@ export async function post(url, data = {}, options = {}) {
  * @returns {Promise<ReadableStreamDefaultReader>} 响应流读取器
  */
 export async function postStream(url, data = {}, options = {}) {
-  return request(url, {
-    ...options,
-    method: 'POST',
-    body: data,
-  }, { isStream: true })
+  return request(
+    url,
+    {
+      ...options,
+      method: 'POST',
+      body: data,
+    },
+    { isStream: true }
+  )
 }
 
 /**
@@ -334,18 +339,23 @@ export async function del(url, params = {}, options = {}) {
  * @param {Function} onComplete - 完成时的回调函数
  * @param {Function} onError - 错误时的回调函数
  */
-export async function parseStreamResponse(reader, onChunk, onComplete, onError) {
+export async function parseStreamResponse(
+  reader,
+  onChunk,
+  onComplete,
+  onError
+) {
   const decoder = new TextDecoder()
-  
+
   try {
     while (true) {
       const { done, value } = await reader.read()
-      
+
       if (done) {
         if (onComplete) onComplete()
         break
       }
-      
+
       if (value) {
         const chunk = decoder.decode(value, { stream: true })
         if (onChunk) onChunk(chunk)

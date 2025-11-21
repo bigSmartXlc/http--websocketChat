@@ -15,7 +15,7 @@ async function initApp() {
     await globalStore.loadAppConfig()
     await globalStore.fetchUserInfo(id.value)
     latitude.value = urlParams.get('lat') || ''
-    longitude.value = urlParams.get('log') || ''
+    longitude.value = urlParams.get('lon') || ''
     await globalStore.getCurrentLocation({ latitude: latitude.value, longitude: longitude.value, id: id.value })
   } catch (e) {
     console.error('初始化失败:', e)
@@ -90,7 +90,11 @@ onMounted(async () => {
 .app-container {
   display: flex;
   flex-direction: column;
-  height: 100vh;
+  /* 使用动态视口高度单位以更好地适配移动设备 */
+  /* height: 100vh; 替换为以下现代视口单位 */
+  height: 100svh; /* 小视口高度 - 浏览器UI展开时 */
+  height: 100lvh; /* 大视口高度 - 浏览器UI收起时 */
+  height: 100dvh; /* 动态视口高度 - 自动适应UI变化 */
   width: 100vw;
   overflow: hidden;
   background-color: #f5f5f5;

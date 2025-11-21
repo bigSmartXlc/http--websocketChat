@@ -72,10 +72,10 @@ const presetQuestionsText = computed(() => {
   return text + `</ul>`
 })
 
-// 从localStorage加载聊天记录
+// 从sessionStorage加载聊天记录
 const loadChatHistory = () => {
   try {
-    const savedMessages = localStorage.getItem('chatMessages')
+    const savedMessages = sessionStorage.getItem('chatMessages')
     if (savedMessages) {
       const parsedMessages: Message[] = JSON.parse(savedMessages)
       // 移除欢迎消息（如果存在），避免重复添加
@@ -90,14 +90,14 @@ const loadChatHistory = () => {
   return []
 }
 
-// 保存聊天记录到localStorage，最多保存30条
+// 保存聊天记录到sessionStorage，最多保存30条
 const saveChatHistory = () => {
   try {
     // 移除欢迎消息，因为我们每次加载都会重新添加
     const messagesToSave = messages.value.filter((msg) => msg.id !== 'welcome')
     // 只保留最近30条记录
     const recentMessages = messagesToSave.slice(-30)
-    localStorage.setItem('chatMessages', JSON.stringify(recentMessages))
+    sessionStorage.setItem('chatMessages', JSON.stringify(recentMessages))
   } catch (error) {
     console.error('保存聊天记录失败:', error)
   }
@@ -147,13 +147,13 @@ const hasShownWelcome = ref(false)
 // 监听位置信息变化
 const locationWatchStop = watch(
   () => globalStore.currentLocation?.address,
-  (newAddress) => {
-    if (newAddress && !hasShownWelcome.value) {
+  (newAddress, oldAddress) => {
+    if (newAddress && !oldAddress && !hasShownWelcome.value) {
       hasShownWelcome.value = true
       getPrompt('TOP')
     }
   },
-  { immediate: false, deep: true } // 立即执行并深度监听
+  { immediate: true, deep: true } // 立即执行并深度监听
 )
 
 //导航跳转小程序
@@ -187,6 +187,8 @@ const handleClickChatMessage = (container: HTMLElement) => {
 }
 
 onMounted(async () => {
+  // 加载聊天记录
+  messages.value = loadChatHistory()
   getButtonPrompt()
   const chatContainer = document.querySelector('.chat-messages')
   const questionContainer = document.querySelector('.buttonQuestion')
@@ -208,7 +210,7 @@ const sendMessage = async () => {
   messages.value.push(userMessage)
 
   // 保存聊天记录
-  // saveChatHistory()
+  saveChatHistory()
 
   // 清空输入框
   inputMessage.value = ''
@@ -300,7 +302,7 @@ const sendMessage = async () => {
     loading.value = false
 
     // 保存聊天记录（包含AI回复）
-    // saveChatHistory()
+    saveChatHistory()
 
     // 滚动到底部
     await nextTick()

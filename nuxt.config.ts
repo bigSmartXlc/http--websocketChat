@@ -10,6 +10,7 @@ export default defineNuxtConfig({
     host: 'localhost',
   },
   app: {
+    baseURL: '/ai/',
     head: {
       title: '武汉停车AI助手',
       meta: [
