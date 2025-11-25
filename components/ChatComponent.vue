@@ -1,8 +1,13 @@
 <template>
   <div class="chat-container">
     <div class="chat-messages" ref="messagesContainer">
-      <div v-for="message in messages" :key="message.id" :class="['message', message.role]">
-        <div class="message-content" v-html="formatMessageContent(message.content, message.reasoning, message.id)
+      <div v-for="message in messages" :key="message.id"
+        :class="['message', message.role, { 'flex_de': message.id == 'welcome' }]">
+        <div v-show="message.id == 'welcome'" class="welcome_content">
+          <img src="@/assets/images/xiaowu.png" alt="logo" class="logo" width="100">
+          <p>{{ appInitInfo.app.chatConfig.welcomeText }}</p>
+        </div>
+        <div class="message-content" :class="{ 'welcome_p': message.id == 'welcome' }" v-html="formatMessageContent(message.content, message.reasoning, message.id)
           "></div>
       </div>
       <div v-if="loading" class="message ai">
@@ -48,6 +53,7 @@ interface Message {
 }
 // 状态定义
 const globalStore = useGlobalStore()
+const appInitInfo = ref<any>({})
 const messages = ref<Message[]>([])
 const inputMessage = ref('')
 const loading = ref(false)
@@ -106,12 +112,12 @@ const saveChatHistory = () => {
 const getAPPinfoAddWelcomeMessage = async () => {
   try {
     //获取应用初始化信息
-    const appInitInfo = await getAppInitInfo('1')
+    appInitInfo.value = await getAppInitInfo('1')
     // 添加欢迎消息
     messages.value.push({
       id: 'welcome',
       role: 'ai',
-      content: `<p>${appInitInfo.app.chatConfig.welcomeText || `用户您好！您当前的位置为<span style="text-decoration:underline;color:blue;">${globalStore.currentLocation.address}(${globalStore.currentLocation.latitude},${globalStore.currentLocation.longitude})</span>附近,请问有什么可以帮您?您可以直接问或者点击下列问题列表中的问题。`}</p>${presetQuestionsText.value}`,
+      content: `${presetQuestionsText.value}`,
     })
   } catch (error) {
     console.error('获取应用初始化信息失败:', error)
@@ -406,6 +412,10 @@ const formatMessageContent = (
   padding: 1rem;
 }
 
+.flex_de {
+  flex-direction: column;
+}
+
 .message {
   margin-bottom: 1rem;
   display: flex;
@@ -440,11 +450,44 @@ const formatMessageContent = (
   color: #333;
 }
 
+.welcome_content {
+  display: flex;
+  align-items: center;
+}
+
+.welcome_content p {
+  display: inline-block;
+  background-color: #ffffff;
+  padding: 5px 10px;
+  border-radius: 12px;
+  position: relative;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+}
+
+.welcome_content p::before {
+  /* 华哥向左的箭头 */
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: -10px;
+  transform: translateY(-50%);
+  width: 0;
+  height: 0;
+  border-top: 5px solid transparent;
+  border-bottom: 5px solid transparent;
+  border-right: 10px solid #fffefe;
+}
+
+.welcome_p {
+  margin-top: -10px;
+}
+
 .message.user .message-content {
   background: linear-gradient(45deg, #1fd29d, #03aab9);
   color: white;
   border-bottom-right-radius: 4px;
 }
+
 
 .message.ai .message-content {
   color: #333;
