@@ -519,7 +519,11 @@ const formatMessageContent = (
   scrollbar-width: none;
   /* Firefox */
   -ms-overflow-style: none;
-  /* Internet Explorer 10+ */
+}
+
+/* 微信浏览器隐藏滚动条 */
+.buttonQuestion::-webkit-scrollbar {
+  display: none;
 }
 
 .buttonQuestion span {
@@ -549,6 +553,11 @@ const formatMessageContent = (
   flex: 1;
   overflow-y: auto;
   padding: 1rem;
+}
+
+/* 微信浏览器隐藏滚动条 */
+.chat-messages::-webkit-scrollbar {
+  display: none;
 }
 
 .flex_de {
