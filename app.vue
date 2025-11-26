@@ -20,10 +20,10 @@ async function initApp() {
   } catch (e) {
     console.error('初始化失败:', e)
   } finally {
-    // 无论成功失败，都标记为“可显示”，避免一直 loading
     showContent.value = true
   }
 }
+
 onMounted(async () => {
   if (import.meta.client) {
     initApp()
@@ -33,7 +33,6 @@ onMounted(async () => {
 
 <template>
   <ClientOnly>
-    <!-- 只有在客户端且初始化完成后才渲染实际内容 -->
     <div v-if="showContent">
       <div v-if="!globalStore.isLoggedIn" class="login-fail-container">
         用户信息加载失败<span class="retry-btn" @click="initApp">重试</span>
@@ -91,10 +90,14 @@ onMounted(async () => {
   display: flex;
   flex-direction: column;
   /* 使用动态视口高度单位以更好地适配移动设备 */
+  height: 100vh;
   /* height: 100vh; 替换为以下现代视口单位 */
-  height: 100svh; /* 小视口高度 - 浏览器UI展开时 */
-  height: 100lvh; /* 大视口高度 - 浏览器UI收起时 */
-  height: 100dvh; /* 动态视口高度 - 自动适应UI变化 */
+  height: 100svh;
+  /* 小视口高度 - 浏览器UI展开时 */
+  height: 100lvh;
+  /* 大视口高度 - 浏览器UI收起时 */
+  height: 100dvh;
+  /* 动态视口高度 - 自动适应UI变化 */
   width: 100vw;
   overflow: hidden;
   background-color: #f5f5f5;

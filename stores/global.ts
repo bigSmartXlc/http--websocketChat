@@ -128,7 +128,6 @@ export const useGlobalStore = defineStore('global', {
       //   (window as any).__wxjs_environment == 'miniprogram' ||
       //   (window as any).jsBridge !== undefined
       // ) {
-      console.log('urlParams:', urlParams)
       const address = await getAddressByLatLngGD([
         Number(urlParams.longitude),
         Number(urlParams.latitude),

@@ -5,7 +5,7 @@
         :class="['message', message.role, { 'flex_de': message.id == 'welcome' }]">
         <div v-show="message.id == 'welcome'" class="welcome_content">
           <img src="@/assets/images/xiaowu.png" alt="logo" class="logo" width="100">
-          <p>{{ appInitInfo.app.chatConfig.welcomeText }}</p>
+          <p>{{ appInitInfo.app?.chatConfig.welcomeText }}</p>
         </div>
         <div class="message-content" :class="{ 'welcome_p': message.id == 'welcome' }" v-html="formatMessageContent(message.content, message.reasoning, message.id)
           "></div>
@@ -20,6 +20,18 @@
         </div>
       </div>
     </div>
+    <div class="new_chat" @click="openChatDialog"><span>开启新对话</span><svg t="1764124983810" class="new_icon"
+        viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" p-id="2413" width="20" height="20">
+        <path
+          d="M344.692364 980.48a49.733818 49.733818 0 0 1-45.893819-30.603636l-39.307636-94.184728H128.302545A128.512 128.512 0 0 1 0 727.412364V190.277818a128.442182 128.442182 0 0 1 128.302545-128.279273H895.767273a128.442182 128.442182 0 0 1 128.302545 128.302546v537.088a128.442182 128.442182 0 0 1-128.302545 128.302545h-329.309091l-196.282182 117.713455c-7.68 4.701091-16.593455 7.098182-25.506909 7.098182zM128.302545 147.432727c-23.691636 0-42.891636 19.293091-42.891636 42.891637v537.088c0 23.714909 19.293091 42.914909 42.891636 42.914909H316.509091l45.288727 108.683636 181.108364-108.683636H895.767273c23.714909 0 42.914909-19.316364 42.914909-42.891637V190.277818c0-23.668364-19.316364-42.868364-42.914909-42.868363H128.302545z"
+          p-id="2414" fill="#1fd5c3"></path>
+        <path
+          d="M325.818182 418.909091m46.545454 0l279.272728 0q46.545455 0 46.545454 46.545454l0 0q0 46.545455-46.545454 46.545455l-279.272728 0q-46.545455 0-46.545454-46.545455l0 0q0-46.545455 46.545454-46.545454Z"
+          p-id="2415" fill="#1fd5c3"></path>
+        <path
+          d="M558.545455 279.272727m0 46.545455l0 279.272727q0 46.545455-46.545455 46.545455l0 0q-46.545455 0-46.545455-46.545455l0-279.272727q0-46.545455 46.545455-46.545455l0 0q46.545455 0 46.545455 46.545455Z"
+          p-id="2416" fill="#1fd5c3"></path>
+      </svg></div>
     <div class="buttonQuestion">
       <span v-for="item in buttonQuestion" :key="item.id" data-action="msg">{{
         item.prompt_content
@@ -31,6 +43,18 @@
       <button @click="sendMessage" :disabled="loading || !inputMessage.trim()" class="send-button">
         发送
       </button>
+    </div>
+    <!-- 开启新对话确认框 -->
+    <div v-if="dialog" class="dialog-overlay">
+      <div class="dialog-box">
+        <p class="dialog-title">确认开启新对话？</p>
+        <p class="dialog-desc">开启后将清空当前聊天记录且无法恢复</p>
+        <div class="dialog-buttons">
+          <div class="dialog-btn dialog-cancel" @click="dialog = false">取消</div>
+          <div class="dialog-btn dialog-confirm" @click="confirmNewChat">确认
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </template>
@@ -67,6 +91,8 @@ interface PresetQuestion {
 }
 const presetQuestions = ref<PresetQuestion[]>([])
 const buttonQuestion = ref<PresetQuestion[]>([])
+//对话框是否显示
+const dialog = ref(false)
 //拼接问题列表
 const presetQuestionsText = computed(() => {
   let text = `<ul class="preset-questions" style="list-style-type:decimal;cursor:pointer;">`
@@ -77,6 +103,29 @@ const presetQuestionsText = computed(() => {
   })
   return text + `</ul>`
 })
+
+//打开对话框
+const openChatDialog = () => {
+  dialog.value = true
+}
+// 开启新对话
+const confirmNewChat = () => {
+  dialog.value = false
+  //先终止对话
+  if (loading.value) {
+    loading.value = false
+  }
+  messages.value = []
+  //清楚session中的聊天记录
+  sessionStorage.removeItem('chatMessages')
+  //更新chatID
+  globalStore.setChatId()
+  messages.value.push({
+    id: 'welcome',
+    role: 'ai',
+    content: `${presetQuestionsText.value}`,
+  })
+}
 
 // 从sessionStorage加载聊天记录
 const loadChatHistory = () => {
@@ -170,25 +219,33 @@ const handleClickPresetQuestion = (event: Event) => {
   }
 }
 
-//监听点击事件
+// 存储事件监听器引用
+const eventListeners = new Map<HTMLElement, (event: Event) => void>()
+
+// 聊天消息点击事件处理函数
+const handleChatClickEvent = (event: Event) => {
+  const actionElement = (event.target as HTMLElement).closest(
+    '[data-action]'
+  ) as HTMLElement
+  if (actionElement?.dataset.action === 'msg') {
+    if (actionElement) {
+      // 触发自定义事件，传递问题内容
+      const question = actionElement.textContent?.trim()
+      inputMessage.value = question
+      sendMessage()
+    }
+  } else if (actionElement?.dataset.action === 'map') {
+    handleClickPresetQuestion(event)
+  }
+}
+
+// 添加点击事件监听器
 const handleClickChatMessage = (container: HTMLElement) => {
   // 检查点击的元素是否是聊天消息项
-  if (container) {
-    container.addEventListener('click', (event) => {
-      const actionElement = (event.target as HTMLElement).closest(
-        '[data-action]'
-      ) as HTMLElement
-      if (actionElement?.dataset.action === 'msg') {
-        if (actionElement) {
-          // 触发自定义事件，传递问题内容
-          const question = actionElement.textContent?.trim()
-          inputMessage.value = question
-          sendMessage()
-        }
-      } else if (actionElement?.dataset.action === 'map') {
-        handleClickPresetQuestion(event)
-      }
-    })
+  if (container && !eventListeners.has(container)) {
+    container.addEventListener('click', handleChatClickEvent)
+    // 保存监听器引用，以便后续清理
+    eventListeners.set(container, handleChatClickEvent)
   }
 }
 
@@ -200,6 +257,17 @@ onMounted(async () => {
   const questionContainer = document.querySelector('.buttonQuestion')
   handleClickChatMessage(chatContainer as HTMLElement)
   handleClickChatMessage(questionContainer as HTMLElement)
+})
+
+// 在组件卸载时清理所有事件监听器
+onUnmounted(() => {
+  // 遍历所有存储的监听器并移除
+  console.log('移除事件监听器');
+  eventListeners.forEach((listener, element) => {
+    element.removeEventListener('click', listener)
+  })
+  // 清空监听器映射
+  eventListeners.clear()
 })
 
 const sendMessage = async () => {
@@ -372,6 +440,76 @@ const formatMessageContent = (
 </script>
 
 <style scoped>
+.dialog-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+}
+
+.dialog-box {
+  background-color: #fff;
+  padding-top: 20px;
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  text-align: center;
+}
+
+.dialog-title {
+  font-size: 18px;
+  font-weight: bold;
+  margin-bottom: 15px;
+}
+
+.dialog-desc {
+  font-size: 14px;
+  color: #666;
+  margin-bottom: 20px;
+  padding: 0px 20px;
+}
+
+.dialog-buttons {
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  cursor: pointer;
+  border-top: solid 1px #c4cbd7;
+  color: #333;
+  font-size: 14px;
+  height: 50px;
+}
+
+.dialog-btn {
+  height: 100%;
+  width: 50%;
+  line-height: 50px;
+  box-sizing: border-box;
+}
+
+.dialog-cancel {
+  border-right: solid 1px #c4cbd7;
+}
+
+
+.new_chat {
+  cursor: pointer;
+  width: 120px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  background-color: #fffdfd;
+  padding: 5px 10px;
+  border-radius: 12px;
+}
+
 .buttonQuestion {
   padding: 5px 14px;
   display: flex;
@@ -392,6 +530,7 @@ const formatMessageContent = (
   border-radius: 12px;
   /* 不允许换行 */
   white-space: nowrap;
+  cursor: pointer;
 }
 
 .chat-container {
